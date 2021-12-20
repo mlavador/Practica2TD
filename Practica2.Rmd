@@ -1,0 +1,47 @@
+---
+title: "Tipología y ciclo de vida de los datos. Práctica 2"
+author: "Mateo Rodríguez Lavado y Eduard Conesa Guerrero"
+date: "20/12/2021"
+output: 
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+******
+# Descripción del dataset
+******
+
+******
+# Integración y selección de los datos de interés a analizar
+******
+
+******
+# Limpieza de los datos
+******
+
+## Elementos vacíos
+
+## Valores extremos
+
+******
+# Análisis de los datos.
+******
+
+## Selección de los grupos de datos
+
+## Comprobación de normalidad y homogeneidad
+
+## Análisis
+
+******
+# Conclusiones
+******
+
+******
+# Tabla de contribuciones
+******
