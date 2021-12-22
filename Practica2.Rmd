@@ -6,27 +6,94 @@ output:
   pdf_document:
     highlight: zenburn
     toc: yes
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ******
 # Descripción del dataset
 ******
-
+```{r,eval=TRUE,echo=TRUE}
+people<-read.csv("train.csv")
+summary(people)
+nrow(people)
+head(people)
+```
 ******
 # Integración y selección de los datos de interés a analizar
 ******
+Despues de describir los campos mostrados en el apartado anterior, se realiza una selección de los atributos de interés para cuando se deseen realizar los diferentes modelos.
+
+Por una parte, los atributos de PassengerId y Name son atributos que solo identifican a la persona, con lo que no aportan información relevante de la supervivencia. Por otra parte el atributo Cabin presenta un gran numero de campos vacios con lo que tampoco se tendrá en cuenta.
+
+```{r,eval=TRUE,echo=TRUE}
+people_red<-people[,c("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Embarked")]
+```
+
+Si nos fijamos en los registros obtenidos, existen dos pasajeros que no disponen de valor de "Embarked" con lo que se eliminaran dichos registros, ya que según se puede observar son dos personas relacionadas que probablemente no subiran a bordo y por tanto no es relevante esta información para estimar la supervivencia de los pasajeros que si lo hicieron.
+
+```{r,eval=TRUE,echo=TRUE}
+people$Survived[which(people$Embarked == "")]
+people_red <- people_red[people_red$Embarked != "", ]
+```
+
+
+Se decide estudiar si se puede generar un nuevo campo con las letras que en ocasiones contiene el ticket.
+```{r,eval=TRUE,echo=TRUE}
+num_Ticket<-as.numeric(people_red$Ticket)
+sum(is.na(num_Ticket))
+length(num_Ticket)
+```
+
+Como se observa, hay muchos registros que no disponen de letras (un 25% aproximadamente), por lo que se descarte generar un campo solo para las letras. 
+
+A continuación se estudia si las letras tambien son utiles para la identificación del ticket o basta con los numeros.
+```{r,eval=TRUE,echo=TRUE}
+people_red$TicketNum <- sapply(strsplit(people_red$Ticket, " ", fixed=TRUE), tail, 1)
+head(people_red)
+length(unique(people_red$TicketNum))
+length(unique(people_red$Ticket))
+```
+
+Dado que hay un variación de 2 entre los valores unicos del ticket con letra respecto al ticket sin letra se decide no simplificarlo de manera numerica, ya que es necesaria tambien.
+
 
 ******
 # Limpieza de los datos
 ******
 
 ## Elementos vacíos
+A continuación se estudian los campos que presentan valores vacios o nulos.
+```{r,eval=TRUE,echo=TRUE}
+colSums(is.na(people))
+colSums(people==-1)
+colSums(people=="")
+colSums(is.na(people_red))
+# totalData_crew["segmento_edad"] <- cut(totalData_crew$age, breaks = c(0,10,20,30,40,50,60,70,100), labels = c("0-9", "10-19", "20-29", "30-39","40-49","50-59","60-69","70-79"))
+```
+
+Como se ha comentado antes, al haber gran cantidad de registros con Cabin vacio, este atributo ha sido eliminado en la fase anterior, asi como tambien los dos registros con Embarked vacio.
+
+Por otra parte se observa que el atributo de edad tiene 177 registros sin valor, igual que en la version reducida del dataset, probablemente porque sea desconocido. Se pueden imputar los valores utilizando por ejemplo el algoritmo de vecinos cercanos basado en la distancia tomando en cuenta las variables Pclass, Fare, SibSp, Parch. Son de especial utilidad las ultimas variables, ya que contienen información en cuanto a los familiares, lo que nos puede indicar si esa persona es mayor o joven.
+
+```{r,eval=TRUE,echo=TRUE}
+library(VIM)
+people_red <- kNN(people_red , variable=c("Age"), dist_var=c("Pclass","SibSp", "Parch", "Fare"))
+sum(is.na(people_red$Age))
+```
+
+Como se observa ya se han imputado los valores ausentes del atributo Age.
 
 ## Valores extremos
+```{r,eval=TRUE,echo=TRUE}
+
+```
+
+
 
 ******
 # Análisis de los datos.
