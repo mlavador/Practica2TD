@@ -3,9 +3,6 @@ title: "Tipología y ciclo de vida de los datos. Práctica 2"
 author: "Mateo Rodríguez Lavado y Eduard Conesa Guerrero"
 date: "20/12/2021"
 output: 
-  pdf_document:
-    highlight: zenburn
-    toc: yes
   html_document:
     highlight: default
     number_sections: yes
@@ -17,12 +14,52 @@ output:
 ******
 # Descripción del dataset
 ******
-```{r,eval=TRUE,echo=TRUE}
-people<-read.csv("train.csv")
-summary(people)
-nrow(people)
-head(people)
+Es conocido por muchos que el 15 de abril de 1912, durante una travesía por mar,
+el Titanic se hundió tras chocar contra un iceberg en su viaje inaugural. Debido a
+que no había botes salvavidas para todos los tripulantes, murieron muchos de ellos.
+
+Este dataset contiene información sobre los pasajeros que iban a bordo del Titanic.
+La información que contiene es la siguiente:
+* PassengerId. Identificador del pasajero.
+* survival.	Indica si el pasajero sobrevivió o no (0 = No, 1 = Si).
+* pclass. Tipo de clase del ticket (1 = primera, 2 = segunda, 3 = tercera).
+* sex. Sexo	
+* Age. Años del pasajero.	
+* sibsp. Número de hermanos o cónyuges a bordo del titanic.	
+* parch. Numero de padres o hijos a borod del titanic.	
+* ticket. Número del Ticket	
+* fare. Tarifa para el pasajero.	
+* cabin. Número de cabina.	
+* embarked. Puerto de embarque.
+
+Este dataset puede ayudar a estudiar esta catástrofe y así reducir el número de víctimas
+en accidentes similares. La pregunta que intentamos responder es la siguiente: 
+¿Qué tipo de personas tenían más probabilidades de sobrevivir?
+
+El dataset lo leemos de la siguientes forma:
+
+```{r,eval=TRUE,echo=TRUE,results='hide'}
+# Cargamos los paquetes R que vamos a usar
+library(ggplot2)
+library(dplyr)
+library(VIM)
 ```
+
+```{r,eval=TRUE,echo=TRUE}
+# Cargamos el fichero de datos
+people<-read.csv("train.csv")
+
+# Verificamos la estructura del conjunto de datos
+str(people)
+```
+
+Se compone de un total de 891 personas que iban a bordo del titanic. Le echamos 
+un rápido vistazo a las variables para ver un resumen de las mismas.
+
+```{r,eval=TRUE,echo=TRUE}
+summary(people)
+```
+
 ******
 # Integración y selección de los datos de interés a analizar
 ******
@@ -81,7 +118,6 @@ Como se ha comentado antes, al haber gran cantidad de registros con Cabin vacio,
 Por otra parte se observa que el atributo de edad tiene 177 registros sin valor, igual que en la version reducida del dataset, probablemente porque sea desconocido. Se pueden imputar los valores utilizando por ejemplo el algoritmo de vecinos cercanos basado en la distancia tomando en cuenta las variables Pclass, Fare, SibSp, Parch. Son de especial utilidad las ultimas variables, ya que contienen información en cuanto a los familiares, lo que nos puede indicar si esa persona es mayor o joven.
 
 ```{r,eval=TRUE,echo=TRUE}
-library(VIM)
 people_red <- kNN(people_red , variable=c("Age"), dist_var=c("Pclass","SibSp", "Parch", "Fare"))
 sum(is.na(people_red$Age))
 ```
@@ -89,11 +125,71 @@ sum(is.na(people_red$Age))
 Como se observa ya se han imputado los valores ausentes del atributo Age.
 
 ## Valores extremos
-```{r,eval=TRUE,echo=TRUE}
 
+Los valores extremos solo los podemos ver en las variables numéricas que en este
+caso son Age y Fare.
+
+Empezaremos por la variable Age. Para comprobar los valores extremos haremos un
+diagrama de caja que muestre si existen estos valores porque tienen una diferencia mayor
+a tres veces la desviación típica respecto la media. 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Boxplot
+
+bpAge <-boxplot(people_red$Age)
+sort(boxplot.stats(people_red$Age)$out)
 ```
 
+Los valores que nos salen outliers son personas mayores que 64 años, siendo su
+máximo 80, pero esto son valores normales dentro de la edad de una persona por lo
+que no se realiza ningún tratamiento especial.
 
+Si realizamos lo mismo para la variables Fare tenemos:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Boxplot
+
+bpFare <-boxplot(people_red$Fare)
+sort(bpFare$out)
+```
+
+Lo más lógico es que todos estos precios altos correspondieran a billetes de
+primera clase muy selectos o a subidas de precio debido a la oferta y demanda.
+Lo primero que vamos a ver es como se distribuyen estos billetes según la clase.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+people_red_outFare <- people_red[people_red$Fare %in% bpFare$out,]
+freq_pclass_outFare <- as.data.frame(table(people_red_outFare$Pclass))
+ggplot(freq_pclass_outFare,aes(x=Var1,y=Freq))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")
+```
+
+Comparando con la distribución original:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+freq_pclass <- as.data.frame(table(people_red$Pclass)) 
+ggplot(freq_pclass,aes(x=Var1,y=Freq))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")
+```
+
+Observamos que la mitad de los pasajeros de primera clase tienen precios mayores
+de lo esperado. Sin embargo, para las clases segunda y tercera hay muy poco que tengan outliers por lo tanto podremos reemplazar sus valores por la media del
+valor del ticket por cada clase.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Cojo solo los valores que no sean outliers y calculo la media
+people_red_wo_out <- people_red[!(people_red$Fare %in% bpFare$out),]
+mean_class <- aggregate(people_red_wo_out$Fare, list(people_red_wo_out$Pclass), mean)
+colnames(mean_class) <- c("Pclass", "mean")
+#Sustituyo para la clase 2
+people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 2),]$Fare <- mean_class[mean_class$Pclass == 2,]$mean
+#Sustituyo para la clase 3
+people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 3),]$Fare <- mean_class[mean_class$Pclass == 3,]$mean
+```
+
+Si nos fijamos otra vez en el diagrama de cajas observamos que hay una separación grande entre tickets con valor menor que 200 y mayor que 200, por lo tanto, estos valores también los sustituiremos con la media
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Sustituyo para la clase 1
+people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 1) & (people_red$Fare >= 200),]$Fare <- mean_class[mean_class$Pclass == 1,]$mean
+```
 
 ******
 # Análisis de los datos.
