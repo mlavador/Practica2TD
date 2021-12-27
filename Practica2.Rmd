@@ -38,11 +38,22 @@ en accidentes similares. La pregunta que intentamos responder es la siguiente:
 
 El dataset lo leemos de la siguientes forma:
 
-```{r,eval=TRUE,echo=TRUE,results='hide'}
+```{r,eval=TRUE,echo=FALSE,results='hide'}
+defaultW <- getOption("warn") 
+options(warn = -1)
+```
+
+
+```{r,eval=TRUE,echo=TRUE,results='hide',message=FALSE}
 # Cargamos los paquetes R que vamos a usar
 library(ggplot2)
 library(dplyr)
 library(VIM)
+library(car)
+```
+
+```{r,eval=TRUE,echo=FALSE,results='hide'}
+options(warn = defaultW)
 ```
 
 ```{r,eval=TRUE,echo=TRUE}
@@ -198,6 +209,24 @@ people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 1) & (peopl
 ## Selección de los grupos de datos
 
 ## Comprobación de normalidad y homogeneidad
+
+Miramos si la variable Fare sigue una distribución normal. Para ello aplicamos el test de Shapiro-Wilk.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+shapiro.test(people_red$Fare)
+```
+
+Observamos que el p-valor es muy inferior a 0.05 y rechazamos la hipótesis nula, por lo tanto, no podemos suponer normalidad en la variable. 
+
+Ahora pasaremos a estudiar la homogeneidad de varianzas mediante la aplicación del test de Levenge. Estudiaremos la homocedasticidad según varios grupos: la clase del pasajero (Pclass), el lugar de embarque (Embarked) y el sexo (Sex).
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+leveneTest(Fare ~ as.factor(Pclass), data = people_red)
+leveneTest(Fare ~ as.factor(Embarked), data = people_red)
+leveneTest(Fare ~ as.factor(Sex), data = people_red)
+```
+
+Observamos que para las tres pruebas resulta un p-valor inferior al nivel de significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad y se concluye que la variable Fare presenta varianzas estadísticamente diferentes para los diferentes grupos de Pclass, Embarked y Sex.
 
 ## Análisis
 

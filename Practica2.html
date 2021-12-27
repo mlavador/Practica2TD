@@ -466,27 +466,9 @@ summary {
 <p>El dataset lo leemos de la siguientes forma:</p>
 <pre class="r"><code># Cargamos los paquetes R que vamos a usar
 library(ggplot2)
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(VIM)</code></pre>
-<pre><code>## Warning: package &#39;VIM&#39; was built under R version 4.0.3</code></pre>
-<pre><code>## Loading required package: colorspace</code></pre>
-<pre><code>## Warning: package &#39;colorspace&#39; was built under R version 4.0.3</code></pre>
-<pre><code>## Loading required package: grid</code></pre>
-<pre><code>## VIM is ready to use.</code></pre>
-<pre><code>## Suggestions and bug-reports can be submitted at: https://github.com/statistikat/VIM/issues</code></pre>
-<pre><code>## 
-## Attaching package: &#39;VIM&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:datasets&#39;:
-## 
-##     sleep</code></pre>
+library(dplyr)
+library(VIM)
+library(car)</code></pre>
 <pre class="r"><code># Cargamos el fichero de datos
 people&lt;-read.csv(&quot;train.csv&quot;)
 
@@ -673,6 +655,37 @@ people_red[(people_red$Fare %in% bpFare$out) &amp; (people_red$Pclass == 1) &amp
 </div>
 <div id="comprobación-de-normalidad-y-homogeneidad" class="section level2">
 <h2><span class="header-section-number">4.2</span> Comprobación de normalidad y homogeneidad</h2>
+<p>Miramos si la variable Fare sigue una distribución normal. Para ello aplicamos el test de Shapiro-Wilk.</p>
+<pre class="r"><code>shapiro.test(people_red$Fare)</code></pre>
+<pre><code>## 
+##  Shapiro-Wilk normality test
+## 
+## data:  people_red$Fare
+## W = 0.69244, p-value &lt; 2.2e-16</code></pre>
+<p>Observamos que el p-valor es muy inferior a 0.05 y rechazamos la hipótesis nula, por lo tanto, no podemos suponer normalidad en la variable.</p>
+<p>Ahora pasaremos a estudiar la homogeneidad de varianzas mediante la aplicación del test de Levenge. Estudiaremos la homocedasticidad según varios grupos: la clase del pasajero (Pclass), el lugar de embarque (Embarked) y el sexo (Sex).</p>
+<pre class="r"><code>leveneTest(Fare ~ as.factor(Pclass), data = people_red)</code></pre>
+<pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median)
+##        Df F value    Pr(&gt;F)    
+## group   2  200.84 &lt; 2.2e-16 ***
+##       886                      
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>leveneTest(Fare ~ as.factor(Embarked), data = people_red)</code></pre>
+<pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median)
+##        Df F value    Pr(&gt;F)    
+## group   2  26.693 5.537e-12 ***
+##       886                      
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>leveneTest(Fare ~ as.factor(Sex), data = people_red)</code></pre>
+<pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median)
+##        Df F value    Pr(&gt;F)    
+## group   1  31.778 2.323e-08 ***
+##       887                      
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>Observamos que para las tres pruebas resulta un p-valor inferior al nivel de significancia (&lt; 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad y se concluye que la variable Fare presenta varianzas estadísticamente diferentes para los diferentes grupos de Pclass, Embarked y Sex.</p>
 </div>
 <div id="análisis" class="section level2">
 <h2><span class="header-section-number">4.3</span> Análisis</h2>
