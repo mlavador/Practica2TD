@@ -208,6 +208,25 @@ people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 1) & (peopl
 
 ## Selección de los grupos de datos
 
+A continuación, Vamos a seleccionar de nuestro conjunto de datos aquellos que pueden resultar más interesantes para investigar y analizar.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Agrupación por sexo
+people_red.male <- people_red[people_red$Sex == "male",]
+people_red.female <- people_red[people_red$Sex == "female",]
+
+#Agrupación por embarque
+people_red.cherbourg <- people_red[people_red$Embarked == "C",]
+people_red.southampton <- people_red[people_red$Embarked == "S",]
+people_red.queenstown <- people_red[people_red$Embarked == "Q",]
+
+#Agrupación por clase
+people_red.first <- people_red[people_red$Pclass == 1,]
+people_red.second <- people_red[people_red$Pclass == 2,]
+people_red.third <- people_red[people_red$Pclass == 3,]
+
+```
+
 ## Comprobación de normalidad y homogeneidad
 
 Miramos si la variable Fare sigue una distribución normal. Para ello aplicamos el test de Shapiro-Wilk.

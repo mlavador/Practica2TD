@@ -652,6 +652,20 @@ people_red[(people_red$Fare %in% bpFare$out) &amp; (people_red$Pclass == 1) &amp
 <hr />
 <div id="selección-de-los-grupos-de-datos" class="section level2">
 <h2><span class="header-section-number">4.1</span> Selección de los grupos de datos</h2>
+<p>A continuación, Vamos a seleccionar de nuestro conjunto de datos aquellos que pueden resultar más interesantes para investigar y analizar.</p>
+<pre class="r"><code>#Agrupación por sexo
+people_red.male &lt;- people_red[people_red$Sex == &quot;male&quot;,]
+people_red.female &lt;- people_red[people_red$Sex == &quot;female&quot;,]
+
+#Agrupación por embarque
+people_red.cherbourg &lt;- people_red[people_red$Embarked == &quot;C&quot;,]
+people_red.southampton &lt;- people_red[people_red$Embarked == &quot;S&quot;,]
+people_red.queenstown &lt;- people_red[people_red$Embarked == &quot;Q&quot;,]
+
+#Agrupación por clase
+people_red.first &lt;- people_red[people_red$Pclass == 1,]
+people_red.second &lt;- people_red[people_red$Pclass == 2,]
+people_red.third &lt;- people_red[people_red$Pclass == 3,]</code></pre>
 </div>
 <div id="comprobación-de-normalidad-y-homogeneidad" class="section level2">
 <h2><span class="header-section-number">4.2</span> Comprobación de normalidad y homogeneidad</h2>
