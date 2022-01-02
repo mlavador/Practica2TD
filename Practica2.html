@@ -468,9 +468,11 @@ summary {
 library(ggplot2)
 library(dplyr)
 library(VIM)
-library(car)</code></pre>
-<pre class="r"><code># Cargamos el fichero de datos
+library(car)
+library(caret)</code></pre>
+<pre class="r"><code># Cargamos los ficheros de datos
 people&lt;-read.csv(&quot;train.csv&quot;)
+test&lt;-read.csv(&quot;test.csv&quot;)
 
 # Verificamos la estructura del conjunto de datos
 str(people)</code></pre>
@@ -520,11 +522,15 @@ str(people)</code></pre>
 <hr />
 <p>Despues de describir los campos mostrados en el apartado anterior, se realiza una selección de los atributos de interés para cuando se deseen realizar los diferentes modelos.</p>
 <p>Por una parte, los atributos de PassengerId y Name son atributos que solo identifican a la persona, con lo que no aportan información relevante de la supervivencia. Por otra parte el atributo Cabin presenta un gran numero de campos vacios con lo que tampoco se tendrá en cuenta.</p>
-<pre class="r"><code>people_red&lt;-people[,c(&quot;Survived&quot;, &quot;Pclass&quot;, &quot;Sex&quot;, &quot;Age&quot;, &quot;SibSp&quot;, &quot;Parch&quot;, &quot;Ticket&quot;, &quot;Fare&quot;, &quot;Embarked&quot;)]</code></pre>
-<p>Si nos fijamos en los registros obtenidos, existen dos pasajeros que no disponen de valor de “Embarked” con lo que se eliminaran dichos registros, ya que según se puede observar son dos personas relacionadas que probablemente no subiran a bordo y por tanto no es relevante esta información para estimar la supervivencia de los pasajeros que si lo hicieron.</p>
+<pre class="r"><code>people_red&lt;-people[,c(&quot;Survived&quot;, &quot;Pclass&quot;, &quot;Sex&quot;, &quot;Age&quot;, &quot;SibSp&quot;, &quot;Parch&quot;, &quot;Ticket&quot;, &quot;Fare&quot;, &quot;Embarked&quot;)]
+test&lt;-people[,c(&quot;Survived&quot;, &quot;Pclass&quot;, &quot;Sex&quot;, &quot;Age&quot;, &quot;SibSp&quot;, &quot;Parch&quot;, &quot;Ticket&quot;, &quot;Fare&quot;, &quot;Embarked&quot;)]</code></pre>
+<p>Si nos fijamos en los registros obtenidos, existen dos pasajeros que no disponen de valor de “Embarked” con lo que se eliminaran dichos registros, ya que según se puede observar son dos personas relacionadas que probablemente no subiran a bordo y por tanto no es relevante esta información para estimar la supervivencia de los pasajeros que si lo hicieron. También ocurre lo mismo con la información que nos viene en test.</p>
 <pre class="r"><code>people$Survived[which(people$Embarked == &quot;&quot;)]</code></pre>
 <pre><code>## [1] 1 1</code></pre>
-<pre class="r"><code>people_red &lt;- people_red[people_red$Embarked != &quot;&quot;, ]</code></pre>
+<pre class="r"><code>people_red &lt;- people_red[people_red$Embarked != &quot;&quot;, ]
+test$Survived[which(test$Embarked == &quot;&quot;)]</code></pre>
+<pre><code>## [1] 1 1</code></pre>
+<pre class="r"><code>test &lt;- test[test$Embarked != &quot;&quot;, ]</code></pre>
 <p>Se decide estudiar si se puede generar un nuevo campo con las letras que en ocasiones contiene el ticket.</p>
 <pre class="r"><code>num_Ticket&lt;-as.numeric(people_red$Ticket)</code></pre>
 <pre><code>## Warning: NAs introducidos por coerción</code></pre>
@@ -555,6 +561,10 @@ head(people_red)</code></pre>
 <pre class="r"><code>length(unique(people_red$Ticket))</code></pre>
 <pre><code>## [1] 680</code></pre>
 <p>Dado que hay un variación de 2 entre los valores unicos del ticket con letra respecto al ticket sin letra se decide no simplificarlo de manera numerica, ya que es necesaria tambien.</p>
+<p>Al no encontrar utilidad en los campos de ticket, finalmente deciden no seleccionarse para el estudio.</p>
+<pre class="r"><code>people_red$Ticket &lt;- NULL
+people_red$TicketNum &lt;- NULL
+test$Ticket &lt;- NULL</code></pre>
 <hr />
 </div>
 <div id="limpieza-de-los-datos" class="section level1">
@@ -579,17 +589,33 @@ head(people_red)</code></pre>
 ##       SibSp       Parch      Ticket        Fare       Cabin    Embarked 
 ##           0           0           0           0         687           2</code></pre>
 <pre class="r"><code>colSums(is.na(people_red))</code></pre>
-<pre><code>##  Survived    Pclass       Sex       Age     SibSp     Parch    Ticket      Fare 
-##         0         0         0       177         0         0         0         0 
-##  Embarked TicketNum 
-##         0         0</code></pre>
+<pre><code>## Survived   Pclass      Sex      Age    SibSp    Parch     Fare Embarked 
+##        0        0        0      177        0        0        0        0</code></pre>
 <pre class="r"><code># totalData_crew[&quot;segmento_edad&quot;] &lt;- cut(totalData_crew$age, breaks = c(0,10,20,30,40,50,60,70,100), labels = c(&quot;0-9&quot;, &quot;10-19&quot;, &quot;20-29&quot;, &quot;30-39&quot;,&quot;40-49&quot;,&quot;50-59&quot;,&quot;60-69&quot;,&quot;70-79&quot;))</code></pre>
+<p>También lo hacemos con los datos de test</p>
+<pre class="r"><code>colSums(test==-1)</code></pre>
+<pre><code>## Survived   Pclass      Sex      Age    SibSp    Parch     Fare Embarked 
+##        0        0        0       NA        0        0        0        0</code></pre>
+<pre class="r"><code>colSums(test==&quot;&quot;)</code></pre>
+<pre><code>## Survived   Pclass      Sex      Age    SibSp    Parch     Fare Embarked 
+##        0        0        0       NA        0        0        0        0</code></pre>
+<pre class="r"><code>colSums(is.na(test))</code></pre>
+<pre><code>## Survived   Pclass      Sex      Age    SibSp    Parch     Fare Embarked 
+##        0        0        0      177        0        0        0        0</code></pre>
 <p>Como se ha comentado antes, al haber gran cantidad de registros con Cabin vacio, este atributo ha sido eliminado en la fase anterior, asi como tambien los dos registros con Embarked vacio.</p>
-<p>Por otra parte se observa que el atributo de edad tiene 177 registros sin valor, igual que en la version reducida del dataset, probablemente porque sea desconocido. Se pueden imputar los valores utilizando por ejemplo el algoritmo de vecinos cercanos basado en la distancia tomando en cuenta las variables Pclass, Fare, SibSp, Parch. Son de especial utilidad las ultimas variables, ya que contienen información en cuanto a los familiares, lo que nos puede indicar si esa persona es mayor o joven.</p>
-<pre class="r"><code>people_red &lt;- kNN(people_red , variable=c(&quot;Age&quot;), dist_var=c(&quot;Pclass&quot;,&quot;SibSp&quot;, &quot;Parch&quot;, &quot;Fare&quot;))
+<p>Por otra parte se observa que el atributo de edad tiene 177 registros sin valor, igual que en la version reducida del dataset, probablemente porque sea desconocido. En la parte de test se observa que tiene 86 registros sin valor en la variable edad y uno en la variable Fare. Se pueden imputar los valores utilizando por ejemplo el algoritmo de vecinos cercanos basado en la distancia tomando en cuenta las variables Pclass, Fare, SibSp, Parch. Son de especial utilidad las ultimas variables, ya que contienen información en cuanto a los familiares, lo que nos puede indicar si esa persona es mayor o joven.</p>
+<pre class="r"><code>#Train
+people_red &lt;- kNN(people_red , variable=c(&quot;Age&quot;), dist_var=c(&quot;Pclass&quot;,&quot;SibSp&quot;, &quot;Parch&quot;, &quot;Fare&quot;))
 sum(is.na(people_red$Age))</code></pre>
 <pre><code>## [1] 0</code></pre>
-<p>Como se observa ya se han imputado los valores ausentes del atributo Age.</p>
+<pre class="r"><code>#Test
+test &lt;- kNN(test , variable=c(&quot;Fare&quot;), dist_var=c(&quot;Pclass&quot;,&quot;SibSp&quot;, &quot;Parch&quot;))
+test &lt;- kNN(test , variable=c(&quot;Age&quot;), dist_var=c(&quot;Pclass&quot;,&quot;SibSp&quot;, &quot;Parch&quot;, &quot;Fare&quot;))
+sum(is.na(test$Fare))</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre class="r"><code>sum(is.na(test$Age))</code></pre>
+<pre><code>## [1] 0</code></pre>
+<p>Como se observa ya se han imputado los valores ausentes del atributo Age y Fare.</p>
 </div>
 <div id="valores-extremos" class="section level2">
 <h2><span class="header-section-number">3.2</span> Valores extremos</h2>
@@ -703,7 +729,217 @@ people_red.third &lt;- people_red[people_red$Pclass == 3,]</code></pre>
 </div>
 <div id="análisis" class="section level2">
 <h2><span class="header-section-number">4.3</span> Análisis</h2>
+<div id="regresión-logística" class="section level3">
+<h3><span class="header-section-number">4.3.1</span> Regresión Logística</h3>
+<p>En este caso, realizaremos una regresión logística para predecir nuestros datos. Para ello, lo primero que haremos será convertir la variable survived en un factor 0, 1 y la variable PClass en factor también.</p>
+<pre class="r"><code>people_red$Survived &lt;- as.factor(people_red$Survived)
+people_red$Pclass &lt;- as.factor(people_red$Pclass)
+test$Survived &lt;- as.factor(test$Survived)
+test$Pclass &lt;- as.factor(test$Pclass)
+str(people_red)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    889 obs. of  9 variables:
+##  $ Survived: Factor w/ 2 levels &quot;0&quot;,&quot;1&quot;: 1 2 2 2 1 1 1 1 2 2 ...
+##  $ Pclass  : Factor w/ 3 levels &quot;1&quot;,&quot;2&quot;,&quot;3&quot;: 3 1 3 1 3 3 1 3 3 2 ...
+##  $ Sex     : chr  &quot;male&quot; &quot;female&quot; &quot;female&quot; &quot;female&quot; ...
+##  $ Age     : num  22 38 26 35 35 21 54 2 27 14 ...
+##  $ SibSp   : int  1 1 0 1 0 0 0 3 0 1 ...
+##  $ Parch   : int  0 0 0 0 0 0 0 1 2 0 ...
+##  $ Fare    : num  7.25 71.28 7.92 53.1 8.05 ...
+##  $ Embarked: chr  &quot;S&quot; &quot;C&quot; &quot;S&quot; &quot;S&quot; ...
+##  $ Age_imp : logi  FALSE FALSE FALSE FALSE FALSE TRUE ...</code></pre>
+<p>Ahora, vamos a aplicar una regresión logística utilizando todas las variables, tanto cuantitativas como cualitativas.</p>
+<pre class="r"><code>logist = glm(formula=Survived ~ .,family=binomial, data = people_red)
+summary(logist)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Survived ~ ., family = binomial, data = people_red)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -2.8226  -0.6284  -0.4049   0.6109   2.4373  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)  3.786865   0.537831   7.041 1.91e-12 ***
+## Pclass2     -0.782700   0.334592  -2.339 0.019322 *  
+## Pclass3     -1.960119   0.350987  -5.585 2.34e-08 ***
+## Sexmale     -2.670366   0.202540 -13.184  &lt; 2e-16 ***
+## Age         -0.036298   0.007784  -4.663 3.12e-06 ***
+## SibSp       -0.380449   0.114553  -3.321 0.000896 ***
+## Parch       -0.138145   0.121696  -1.135 0.256307    
+## Fare         0.008938   0.005414   1.651 0.098790 .  
+## EmbarkedQ    0.152576   0.394916   0.386 0.699237    
+## EmbarkedS   -0.447425   0.240784  -1.858 0.063140 .  
+## Age_impTRUE -0.205013   0.254470  -0.806 0.420446    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 1182.82  on 888  degrees of freedom
+## Residual deviance:  783.36  on 878  degrees of freedom
+## AIC: 805.36
+## 
+## Number of Fisher Scoring iterations: 5</code></pre>
+<p>Podemos observar aquí como las variables de PClass, Sex, Age, SibSp y Parch son significativas ya que el p-valor proporcionado por el estadístico de Wald es inferior a 0,05. De estos regresores, vamos a ver cuál tiene mayor impacto. Para ello utilizamos el criterio de información de Akaike, es decir, observamos que valor tiene el AIC con cada una de las variables predictoras por separado.</p>
+<pre class="r"><code>#Pclass
+summary(glm(formula=Survived ~ Pclass,family=binomial, data = people_red))</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Survived ~ Pclass, family = binomial, data = people_red)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.4028  -0.7450  -0.7450   0.9676   1.6836  
+## 
+## Coefficients:
+##             Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)   0.5158     0.1413   3.651 0.000261 ***
+## Pclass2      -0.6246     0.2044  -3.056 0.002241 ** 
+## Pclass3      -1.6556     0.1762  -9.395  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 1182.8  on 888  degrees of freedom
+## Residual deviance: 1081.2  on 886  degrees of freedom
+## AIC: 1087.2
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<pre class="r"><code>#Sex
+summary(glm(formula=Survived ~ Sex,family=binomial, data = people_red))</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Survived ~ Sex, family = binomial, data = people_red)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.6423  -0.6471  -0.6471   0.7753   1.8256  
+## 
+## Coefficients:
+##             Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)   1.0480     0.1291   8.116 4.83e-16 ***
+## Sexmale      -2.5051     0.1673 -14.975  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 1182.82  on 888  degrees of freedom
+## Residual deviance:  916.61  on 887  degrees of freedom
+## AIC: 920.61
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<pre class="r"><code>#Age
+summary(glm(formula=Survived ~ Age,family=binomial, data = people_red))</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Survived ~ Age, family = binomial, data = people_red)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.0625  -0.9943  -0.9475   1.3691   1.5479  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(&gt;|z|)  
+## (Intercept) -0.269204   0.163069  -1.651   0.0988 .
+## Age         -0.007120   0.005037  -1.413   0.1575  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 1182.8  on 888  degrees of freedom
+## Residual deviance: 1180.8  on 887  degrees of freedom
+## AIC: 1184.8
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<pre class="r"><code>#SibSp
+summary(glm(formula=Survived ~ SibSp,family=binomial, data = people_red))</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Survived ~ SibSp, family = binomial, data = people_red)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -0.9951  -0.9951  -0.9694   1.3714   1.4896  
+## 
+## Coefficients:
+##             Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept) -0.44525    0.07643  -5.826 5.69e-09 ***
+## SibSp       -0.06604    0.06532  -1.011    0.312    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 1182.8  on 888  degrees of freedom
+## Residual deviance: 1181.8  on 887  degrees of freedom
+## AIC: 1185.8
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<pre class="r"><code>#Parch
+summary(glm(formula=Survived ~ Parch,family=binomial, data = people_red))</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Survived ~ Parch, family = binomial, data = people_red)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.4769  -0.9504  -0.9504   1.4228   1.4228  
+## 
+## Coefficients:
+##             Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept) -0.56059    0.07708  -7.273 3.51e-13 ***
+## Parch        0.20695    0.08469   2.444   0.0145 *  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 1182.8  on 888  degrees of freedom
+## Residual deviance: 1176.8  on 887  degrees of freedom
+## AIC: 1180.8
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<p>Si comparamos los valores de AIC de cada modelo observamos que el de Sex es el mas bajo luego esa sera la variable más representativa.</p>
+<p>Ahora predecimos el modelo con los valores de test y usamos un threshold para determinar si un resultado de la predicción es un 0 o un 1.</p>
+<pre class="r"><code>pred&lt;-predict(logist, test,type=&#39;response&#39;)
+threshold &lt;- ifelse(pred &gt; 0.5, 1, 0)
+p_class &lt;- factor(threshold, levels = levels(test$Survived))</code></pre>
+<p>Por último, creamos la matriz de confusión para ver cuál es el valor predictivo de nuestro modelo.</p>
+<pre class="r"><code>confusionMatrix(p_class, test$Survived)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction   0   1
+##          0 476 104
+##          1  73 236
+##                                           
+##                Accuracy : 0.8009          
+##                  95% CI : (0.7731, 0.8267)
+##     No Information Rate : 0.6175          
+##     P-Value [Acc &gt; NIR] : &lt; 2e-16         
+##                                           
+##                   Kappa : 0.5711          
+##                                           
+##  Mcnemar&#39;s Test P-Value : 0.02414         
+##                                           
+##             Sensitivity : 0.8670          
+##             Specificity : 0.6941          
+##          Pos Pred Value : 0.8207          
+##          Neg Pred Value : 0.7638          
+##              Prevalence : 0.6175          
+##          Detection Rate : 0.5354          
+##    Detection Prevalence : 0.6524          
+##       Balanced Accuracy : 0.7806          
+##                                           
+##        &#39;Positive&#39; Class : 0               
+## </code></pre>
+<p>Observamos que nuestro modelo tiene una precisión decente aunque mejorable. Por lo que parece, identifica bien los verdaderos positivos ya que tiene una sensibilidad alta.</p>
 <hr />
+</div>
 </div>
 </div>
 <div id="conclusiones" class="section level1">
