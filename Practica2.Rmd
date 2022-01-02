@@ -20,6 +20,7 @@ que no había botes salvavidas para todos los tripulantes, murieron muchos de el
 
 Este dataset contiene información sobre los pasajeros que iban a bordo del Titanic.
 La información que contiene es la siguiente:
+
 * PassengerId. Identificador del pasajero.
 * survival.	Indica si el pasajero sobrevivió o no (0 = No, 1 = Si).
 * pclass. Tipo de clase del ticket (1 = primera, 2 = segunda, 3 = tercera).
@@ -108,7 +109,9 @@ length(unique(people_red$Ticket))
 ```
 
 Dado que hay un variación de 2 entre los valores unicos del ticket con letra respecto al ticket sin letra se decide no simplificarlo de manera numerica, ya que es necesaria tambien.
-
+```{r,eval=TRUE,echo=TRUE}
+people_red$TicketNum <- NULL
+```
 
 ******
 # Limpieza de los datos
@@ -121,7 +124,6 @@ colSums(is.na(people))
 colSums(people==-1)
 colSums(people=="")
 colSums(is.na(people_red))
-# totalData_crew["segmento_edad"] <- cut(totalData_crew$age, breaks = c(0,10,20,30,40,50,60,70,100), labels = c("0-9", "10-19", "20-29", "30-39","40-49","50-59","60-69","70-79"))
 ```
 
 Como se ha comentado antes, al haber gran cantidad de registros con Cabin vacio, este atributo ha sido eliminado en la fase anterior, asi como tambien los dos registros con Embarked vacio.
@@ -133,7 +135,10 @@ people_red <- kNN(people_red , variable=c("Age"), dist_var=c("Pclass","SibSp", "
 sum(is.na(people_red$Age))
 ```
 
-Como se observa ya se han imputado los valores ausentes del atributo Age.
+Como se observa ya se han imputado los valores ausentes del atributo Age. Se elimina tambien el ultimo campo añadido al dataset que contiene la información de valores imputados.
+```{r,eval=TRUE,echo=TRUE}
+people_red$Age_imp <- NULL
+```
 
 ## Valores extremos
 
@@ -169,15 +174,16 @@ Lo primero que vamos a ver es como se distribuyen estos billetes según la clase
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 people_red_outFare <- people_red[people_red$Fare %in% bpFare$out,]
+class <- c("1a","2a","3a")
 freq_pclass_outFare <- as.data.frame(table(people_red_outFare$Pclass))
-ggplot(freq_pclass_outFare,aes(x=Var1,y=Freq))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")
+ggplot(freq_pclass_outFare,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Distribución de precio segun clase de los outliers")
 ```
 
 Comparando con la distribución original:
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 freq_pclass <- as.data.frame(table(people_red$Pclass)) 
-ggplot(freq_pclass,aes(x=Var1,y=Freq))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")
+ggplot(freq_pclass,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Distribución de precio segun clase")
 ```
 
 Observamos que la mitad de los pasajeros de primera clase tienen precios mayores
@@ -200,6 +206,15 @@ Si nos fijamos otra vez en el diagrama de cajas observamos que hay una separaci�
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Sustituyo para la clase 1
 people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 1) & (people_red$Fare >= 200),]$Fare <- mean_class[mean_class$Pclass == 1,]$mean
+```
+
+Por ultimo se convierten las clases con valor categorico a factor, para su correcto procesado posterior.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+people_red$Sex <- as.factor(people_red$Sex)
+people_red$Pclass <- as.factor(people_red$Pclass)
+people_red$Embarked <- as.factor(people_red$Embarked)
+people_red$Survived <- as.factor(people_red$Survived)
+people_red$Ticket <- as.factor(people_red$Ticket)
 ```
 
 ******
@@ -229,25 +244,165 @@ people_red.third <- people_red[people_red$Pclass == 3,]
 
 ## Comprobación de normalidad y homogeneidad
 
-Miramos si la variable Fare sigue una distribución normal. Para ello aplicamos el test de Shapiro-Wilk.
+Miramos si la variables Fare y Age siguen una distribución normal. Para ello aplicamos el test de Shapiro-Wilk asi como se muestra tambien el grafico cuartil-cuartil.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 shapiro.test(people_red$Fare)
+qqnorm(people_red$Fare)
+qqline(people_red$Fare, col = "steelblue", lwd = 2)
+
+shapiro.test(people_red$Age)
+qqnorm(people_red$Age)
+qqline(people_red$Age, col = "steelblue", lwd = 2)
 ```
 
-Observamos que el p-valor es muy inferior a 0.05 y rechazamos la hipótesis nula, por lo tanto, no podemos suponer normalidad en la variable. 
 
-Ahora pasaremos a estudiar la homogeneidad de varianzas mediante la aplicación del test de Levenge. Estudiaremos la homocedasticidad según varios grupos: la clase del pasajero (Pclass), el lugar de embarque (Embarked) y el sexo (Sex).
+Observamos que la distribución se aleja mucho de la distribución normal en el grafico. Esto se corrobora al ver que el p-valor es muy inferior a 0.05 y rechazamos la hipótesis nula. Por lo tanto, no podemos suponer normalidad en las variables. 
+
+Ahora pasaremos a estudiar la homogeneidad de varianzas mediante la aplicación del test de Fligner-Kileen, ya que las variables no cumplen la condición de normalidad. Estudiaremos la homocedasticidad según varios grupos: la clase del pasajero (Pclass), el lugar de embarque (Embarked), edad (Age) y el sexo (Sex).
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-leveneTest(Fare ~ as.factor(Pclass), data = people_red)
-leveneTest(Fare ~ as.factor(Embarked), data = people_red)
-leveneTest(Fare ~ as.factor(Sex), data = people_red)
+fligner.test(Fare ~ as.factor(Age), data = people_red )
+fligner.test(Fare ~ Pclass, data = people_red)
+fligner.test(Fare ~ Embarked, data = people_red)
+fligner.test(Fare ~ Sex, data = people_red)
 ```
 
-Observamos que para las tres pruebas resulta un p-valor inferior al nivel de significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad y se concluye que la variable Fare presenta varianzas estadísticamente diferentes para los diferentes grupos de Pclass, Embarked y Sex.
+Observamos que para las cuatro pruebas resulta un p-valor inferior al nivel de significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad y se concluye que la variable Fare presenta varianzas estadísticamente diferentes para los diferentes grupos de Pclass, Embarked, Age y Sex.
+
 
 ## Análisis
+
+### Clustering
+
+A continuación se desea observar si es posible obtener una caracterización de los supervivientes o pasajeros del Titanic, por lo que se aplica un metodo de clusterización basado en k-medoides, utilizando la distancia de Gower, que permite combinar atributos numericos con categóricos. Para hacer esta caracterización se tendrán en cuenta todos los atributos.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(cluster)
+
+gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
+                    metric = "gower",
+                    type = list(logratio = 3))
+```
+
+A continuación, se determina el número óptimo de grupos.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+sil_width <- c(NA)
+for(i in 2:20){
+
+  pam_fit <- pam(gower_dist,
+                 diss = TRUE,
+                 k = i)
+
+  sil_width[i] <- pam_fit$silinfo$avg.width
+
+}
+
+# Plot sihouette width (higher is better)
+plot(1:20, sil_width,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width")
+lines(1:20, sil_width)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+pam_fit <- pam(gower_dist, diss = TRUE, k = 10)
+
+pam_results <- people_red %>%
+  dplyr::select(-Survived) %>%
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+
+# pam_results$the_summary
+
+people_red[pam_fit$medoids, ]
+
+people_red <- cbind(people_red, cluster = pam_fit$cluster)
+pairs(people_red, col=c("red", "blue"))
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(Rtsne) # for t-SNE plot
+tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam_fit$clustering),
+         name = people_red$Survived)
+ggplot(aes(x = X, y = Y), data = tsne_data) +
+  geom_point(aes(color = cluster))
+```
+
+### Arboles de decision
+
+A continuación se generara un modelo para predecir los supervivientes mediante arboles de decisión. Para ello se seleccionan las variables comentadas anteriormente y se generan las muestras de test y validación.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+red_mod <- people_red[ ,c("Pclass", "SibSp", "Parch","Embarked", "Survived", "Age", "Fare", "Sex")]
+s_size <- floor(0.75 * nrow(red_mod))
+
+train_el <- sample(seq_len(nrow(red_mod)), size = s_size)
+
+train <- red_mod[train_el, ]
+test <- red_mod[-train_el, ]
+
+```
+
+Se genera el arbol de decisión con ctree y Random forest.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(rpart)
+library(readr)
+library(caTools)
+library(party)
+library(partykit)
+library(rpart.plot)
+library(caret)
+# tree.survived <- rpart(Survived~.,data = train, method="class")
+# plot(tree.survived)
+# text(tree.survived, pretty = 0)
+
+ctree_ <- ctree(Survived ~ ., train)
+plot(ctree_)
+
+library(randomForest)
+forest.mod <- randomForest(Survived ~ ., data=red_mod, importance=TRUE,ntree=1000)
+```
+
+A continuación se realiza la predicción del modelo y se obtienen sus métricas.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# tree.pred = predict(tree.survived, test, type="class")
+# pred.results = with(tree.survived, table(tree.pred, test$Survived))
+# confusionMatrix(pred.results,reference = test$Survived)
+
+tree.pred.c = predict(ctree_, test, method="class")
+pred.results.c = with(ctree_, table(tree.pred.c, test$Survived))
+confusionMatrix(pred.results.c,reference = test$Survived)
+
+forest.pred <- predict(forest.mod, red_mod, method="class")
+pred.results.forest <- with(forest.mod, table(forest.pred, red_mod$Survived))
+confusionMatrix(pred.results.forest, reference = red_mod$Survived)
+```
+
+
+### Contrastes
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+t.test(people_red.first$Fare, people_red.second$Fare,alternative="greater", var.equal=FALSE)
+
+t.test(people_red.second$Fare, people_red.third$Fare,alternative="greater", var.equal=FALSE)
+
+t.test(people_red.first$Age, people_red.second$Age,alternative="greater", var.equal=FALSE)
+
+t.test(people_red.first$Age, people_red.third$Age,alternative="greater", var.equal=FALSE)
+
+t.test(people_red.third$SibSp, people_red.first$SibSp,alternative="greater", var.equal=FALSE)
+
+t.test(people_red.third$SibSp, people_red.second$SibSp,alternative="greater", var.equal=FALSE)
+
+```
+
+
+
 
 ******
 # Conclusiones
