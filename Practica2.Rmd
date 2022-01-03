@@ -16,9 +16,9 @@ output:
 ******
 Es conocido por muchos que el 15 de abril de 1912, durante una travesía por mar,
 el Titanic se hundió tras chocar contra un iceberg en su viaje inaugural. Debido a
-que no había botes salvavidas para todos los tripulantes, murieron muchos de ellos.
+que no había botes salvavidas para todos los pasajeros, murieron muchos de ellos.
 
-Este dataset contiene información sobre los pasajeros que iban a bordo del Titanic.
+Este dataset contiene información sobre los que iban a bordo del Titanic.
 La información que contiene es la siguiente:
 
 * PassengerId. Identificador del pasajero.
@@ -37,81 +37,79 @@ Este dataset puede ayudar a estudiar esta catástrofe y así reducir el número 
 en accidentes similares. La pregunta que intentamos responder es la siguiente: 
 ¿Qué tipo de personas tenían más probabilidades de sobrevivir?
 
-El dataset lo leemos de la siguientes forma:
-
-```{r,eval=TRUE,echo=FALSE,results='hide'}
-defaultW <- getOption("warn") 
-options(warn = -1)
-```
-
-
-```{r,eval=TRUE,echo=TRUE,results='hide',message=FALSE}
-# Cargamos los paquetes R que vamos a usar
-library(ggplot2)
-library(dplyr)
-library(VIM)
-library(car)
-```
-
-```{r,eval=TRUE,echo=FALSE,results='hide'}
-options(warn = defaultW)
-```
-
+El dataset se lee de la siguientes forma:
 ```{r,eval=TRUE,echo=TRUE}
-# Cargamos el fichero de datos
+# Se carga el fichero de datos
 people<-read.csv("train.csv")
 
-# Verificamos la estructura del conjunto de datos
+# Se verifica la estructura del conjunto de datos
 str(people)
 ```
 
-Se compone de un total de 891 personas que iban a bordo del titanic. Le echamos 
-un rápido vistazo a las variables para ver un resumen de las mismas.
+Se compone de un total de 891 personas que iban a bordo del titanic. Se realiza 
+un análisis rapido de las variables para ver un resumen de las mismas.
 
 ```{r,eval=TRUE,echo=TRUE}
 summary(people)
 ```
 
+Este análisis muestra que la carga se ha realizado exitosamente.
+
 ******
 # Integración y selección de los datos de interés a analizar
 ******
-Despues de describir los campos mostrados en el apartado anterior, se realiza una selección de los atributos de interés para cuando se deseen realizar los diferentes modelos.
+Despues de describir los campos mostrados en el apartado anterior, se realiza 
+una selección de los atributos de interés para cuando se deseen realizar los 
+diferentes modelos.
 
-Por una parte, los atributos de PassengerId y Name son atributos que solo identifican a la persona, con lo que no aportan información relevante de la supervivencia. Por otra parte el atributo Cabin presenta un gran numero de campos vacios con lo que tampoco se tendrá en cuenta.
+Por una parte, los atributos de PassengerId y Name son atributos que solo identifican 
+a la persona, con lo que no aportan información relevante de la supervivencia y 
+podrían generar sobrespecialización del modelo. Por otra parte el atributo Cabin 
+presenta un gran numero de campos vacios con lo que tampoco se tendrá en cuenta.
 
 ```{r,eval=TRUE,echo=TRUE}
 people_red<-people[,c("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Embarked")]
 ```
 
-Si nos fijamos en los registros obtenidos, existen dos pasajeros que no disponen de valor de "Embarked" con lo que se eliminaran dichos registros, ya que según se puede observar son dos personas relacionadas que probablemente no subiran a bordo y por tanto no es relevante esta información para estimar la supervivencia de los pasajeros que si lo hicieron.
+Fijandose en los registros obtenidos, existen dos pasajeros que no disponen 
+de valor de "Embarked" con lo que se eliminaran dichos registros, ya que según 
+se puede observar son dos personas relacionadas que probablemente no subiran a 
+bordo y por tanto no es relevante esta información para estimar la supervivencia 
+de los pasajeros que si lo hicieron.
 
 ```{r,eval=TRUE,echo=TRUE}
 people$Survived[which(people$Embarked == "")]
 people_red <- people_red[people_red$Embarked != "", ]
 ```
 
-
-Se decide estudiar si se puede generar un nuevo campo con las letras que en ocasiones contiene el ticket.
+Se decide estudiar si se puede generar un nuevo campo con las letras que en 
+ocasiones contiene el ticket.
 ```{r,eval=TRUE,echo=TRUE}
 num_Ticket<-as.numeric(people_red$Ticket)
 sum(is.na(num_Ticket))
 length(num_Ticket)
 ```
 
-Como se observa, hay muchos registros que no disponen de letras (un 25% aproximadamente), por lo que se descarte generar un campo solo para las letras. 
+Como se observa, hay muchos registros que no disponen de letras 
+(un 25% aproximadamente), por lo que se descarte generar un campo solo para las 
+letras. 
 
-A continuación se estudia si las letras tambien son utiles para la identificación del ticket o basta con los numeros.
+A continuación se estudia si las letras tambien son utiles para la 
+identificación del ticket o basta con los numeros.
 ```{r,eval=TRUE,echo=TRUE}
-people_red$TicketNum <- sapply(strsplit(people_red$Ticket, " ", fixed=TRUE), tail, 1)
+TicketNum <- sapply(strsplit(people_red$Ticket, " ", fixed=TRUE), tail, 1)
 head(people_red)
-length(unique(people_red$TicketNum))
+length(unique(TicketNum))
 length(unique(people_red$Ticket))
+nrow(people_red)
 ```
 
-Dado que hay un variación de 2 entre los valores unicos del ticket con letra respecto al ticket sin letra se decide no simplificarlo de manera numerica, ya que es necesaria tambien.
-```{r,eval=TRUE,echo=TRUE}
-people_red$TicketNum <- NULL
-```
+Dado que hay un variación de 2 entre los valores únicos del ticket con letra 
+respecto al ticket sin letra se decide no simplificarlo de manera numérica, ya 
+que es necesaria también. El atributo ticket se mantiene ya que no es un 
+identificador único del pasajero (680 valores únicos contra 889 tomados) y 
+puede contener información de la localización 
+de los pasajeros en el barco.
 
 ******
 # Limpieza de los datos
@@ -126,28 +124,39 @@ colSums(people=="")
 colSums(is.na(people_red))
 ```
 
-Como se ha comentado antes, al haber gran cantidad de registros con Cabin vacio, este atributo ha sido eliminado en la fase anterior, asi como tambien los dos registros con Embarked vacio.
+Como se ha comentado antes, al haber gran cantidad de registros con Cabin vacio, 
+este atributo ha sido eliminado en la fase anterior, asi como tambien los dos 
+registros con Embarked vacio.
 
-Por otra parte se observa que el atributo de edad tiene 177 registros sin valor, igual que en la version reducida del dataset, probablemente porque sea desconocido. Se pueden imputar los valores utilizando por ejemplo el algoritmo de vecinos cercanos basado en la distancia tomando en cuenta las variables Pclass, Fare, SibSp, Parch. Son de especial utilidad las ultimas variables, ya que contienen información en cuanto a los familiares, lo que nos puede indicar si esa persona es mayor o joven.
+Por otra parte se observa que el atributo de edad tiene 177 registros sin valor, 
+igual que en la version reducida del dataset, probablemente porque sea 
+desconocido. Se pueden imputar los valores utilizando por ejemplo el algoritmo 
+de vecinos cercanos basado en la distancia tomando en cuenta las variables 
+Pclass, Fare, SibSp, Parch. Son de especial utilidad las ultimas variables, ya 
+que contienen información en cuanto a los familiares, lo que nos puede indicar 
+si esa persona es mayor o joven.
 
 ```{r,eval=TRUE,echo=TRUE}
+library(VIM)
 people_red <- kNN(people_red , variable=c("Age"), dist_var=c("Pclass","SibSp", "Parch", "Fare"))
 sum(is.na(people_red$Age))
 ```
 
-Como se observa ya se han imputado los valores ausentes del atributo Age. Se elimina tambien el ultimo campo añadido al dataset que contiene la información de valores imputados.
+Como se observa ya se han imputado los valores ausentes del atributo Age. Se 
+elimina tambien el ultimo campo añadido al dataset que contiene la información 
+de valores imputados y este no será de utilidad.
 ```{r,eval=TRUE,echo=TRUE}
 people_red$Age_imp <- NULL
 ```
 
 ## Valores extremos
 
-Los valores extremos solo los podemos ver en las variables numéricas que en este
+Los valores extremos solo se pueden ver en las variables numéricas que en este
 caso son Age y Fare.
 
-Empezaremos por la variable Age. Para comprobar los valores extremos haremos un
-diagrama de caja que muestre si existen estos valores porque tienen una diferencia mayor
-a tres veces la desviación típica respecto la media. 
+Se procede en primer lugar con la variable Age. Para comprobar los valores 
+extremos se hará un diagrama de caja que muestre si existen estos valores porque 
+tienen una diferencia mayor a tres veces la desviación típica respecto la media. 
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Boxplot
@@ -156,11 +165,11 @@ bpAge <-boxplot(people_red$Age)
 sort(boxplot.stats(people_red$Age)$out)
 ```
 
-Los valores que nos salen outliers son personas mayores que 64 años, siendo su
-máximo 80, pero esto son valores normales dentro de la edad de una persona por lo
-que no se realiza ningún tratamiento especial.
+Los outliers son personas mayores que 64 años, siendo su máximo 80, pero esto 
+son valores normales dentro de la edad de una persona por lo que no se realiza 
+ningún tratamiento especial.
 
-Si realizamos lo mismo para la variables Fare tenemos:
+Si se realiza lo mismo para la variables Fare se tiene:
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Boxplot
 
@@ -170,9 +179,10 @@ sort(bpFare$out)
 
 Lo más lógico es que todos estos precios altos correspondieran a billetes de
 primera clase muy selectos o a subidas de precio debido a la oferta y demanda.
-Lo primero que vamos a ver es como se distribuyen estos billetes según la clase.
+Lo primero es ver es como se distribuyen estos billetes según la clase.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
 people_red_outFare <- people_red[people_red$Fare %in% bpFare$out,]
 class <- c("1a","2a","3a")
 freq_pclass_outFare <- as.data.frame(table(people_red_outFare$Pclass))
@@ -186,8 +196,9 @@ freq_pclass <- as.data.frame(table(people_red$Pclass))
 ggplot(freq_pclass,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Distribución de precio segun clase")
 ```
 
-Observamos que la mitad de los pasajeros de primera clase tienen precios mayores
-de lo esperado. Sin embargo, para las clases segunda y tercera hay muy poco que tengan outliers por lo tanto podremos reemplazar sus valores por la media del
+Se observa que la mitad de los pasajeros de primera clase tienen precios mayores
+de lo esperado. Sin embargo, para las clases segunda y tercera hay muy poco que 
+tengan outliers por lo tanto podremos reemplazar sus valores por la media del
 valor del ticket por cada clase.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -201,14 +212,17 @@ people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 2),]$Fare <
 people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 3),]$Fare <- mean_class[mean_class$Pclass == 3,]$mean
 ```
 
-Si nos fijamos otra vez en el diagrama de cajas observamos que hay una separación grande entre tickets con valor menor que 200 y mayor que 200, por lo tanto, estos valores también los sustituiremos con la media
+Si se observa nuevamente el diagrama de cajas se aprecia que hay una separación 
+grande entre tickets con valor menor que 200 y mayor que 200, por lo tanto, 
+estos valores también se sustituyen con la media.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Sustituyo para la clase 1
 people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 1) & (people_red$Fare >= 200),]$Fare <- mean_class[mean_class$Pclass == 1,]$mean
 ```
 
-Por ultimo se convierten las clases con valor categorico a factor, para su correcto procesado posterior.
+Por ultimo, se convierten las clases con valor categorico a factor, para su 
+correcto procesado posterior.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 people_red$Sex <- as.factor(people_red$Sex)
 people_red$Pclass <- as.factor(people_red$Pclass)
@@ -224,17 +238,14 @@ head(people_red)
 
 ## Selección de los grupos de datos
 
-A continuación, Vamos a seleccionar de nuestro conjunto de datos aquellos que pueden resultar más interesantes para investigar y analizar.
+A continuación, se generan muestras de datos en función de las características 
+más interesantes para investigar y analizar, como el sexo, la clase del pasajero
+y por supervivencia
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Agrupación por sexo
 people_red.male <- people_red[people_red$Sex == "male",]
 people_red.female <- people_red[people_red$Sex == "female",]
-
-#Agrupación por embarque
-people_red.cherbourg <- people_red[people_red$Embarked == "C",]
-people_red.southampton <- people_red[people_red$Embarked == "S",]
-people_red.queenstown <- people_red[people_red$Embarked == "Q",]
 
 #Agrupación por clase
 people_red.first <- people_red[people_red$Pclass == 1,]
@@ -247,13 +258,12 @@ people_red.supervivientes<- people_red[people_red$Survived == "Sobrevive",]
 ```
 
 
-Como se observa, ninguna de las muestras contiene menos de 30 elementos, con lo que se puede asumir normalidad en la distribución de las medias según el teorema central del límite.
+Como se observa, ninguna de las muestras contiene menos de 30 elementos, 
+con lo que se puede asumir normalidad en la distribución de las medias según 
+el teorema central del límite para los futuros analisis.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 nrow(people_red.male)
 nrow(people_red.female)
-nrow(people_red.cherbourg)
-nrow(people_red.southampton)
-nrow(people_red.queenstown)
 nrow(people_red.first)
 nrow(people_red.second)
 nrow(people_red.third)
@@ -264,7 +274,9 @@ nrow(people_red.supervivientes)
 
 ## Comprobación de normalidad y homogeneidad
 
-Miramos si la variables Fare y Age siguen una distribución normal. Para ello aplicamos el test de Shapiro-Wilk asi como se muestra tambien el grafico cuartil-cuartil.
+se analiza si la variables Fare y Age siguen una distribución normal. Para ello 
+se aplica el test de Shapiro-Wilk asi como se muestra tambien el gráfico 
+cuartil-cuartil.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 shapiro.test(people_red$Fare)
 qqnorm(people_red$Fare)
@@ -276,9 +288,15 @@ qqline(people_red$Age, col = "steelblue", lwd = 2)
 ```
 
 
-Observamos que la distribución se aleja mucho de la distribución normal en el grafico. Esto se corrobora al ver que el p-valor es muy inferior a 0.05 y rechazamos la hipótesis nula. Por lo tanto, no podemos suponer normalidad en las variables. 
+Se observa que la distribución se aleja mucho de la distribución normal en el 
+gráfico. Esto se corrobora al ver que el p-valor es muy inferior a 0.05 y 
+se rechaza la hipótesis nula. Por lo tanto, no se puede suponer normalidad en 
+las variables. 
 
-Ahora pasaremos a estudiar la homogeneidad de varianzas mediante la aplicación del test de Fligner-Kileen, ya que las variables no cumplen la condición de normalidad. Estudiaremos la homocedasticidad según varios grupos: la clase del pasajero (Pclass), el lugar de embarque (Embarked), edad (Age) y el sexo (Sex).
+Ahora se estudiará la homogeneidad de varianzas mediante la aplicación 
+del test de Fligner-Kileen, ya que las variables no cumplen la condición de 
+normalidad. Se estudia la homocedasticidad según varios grupos: la clase del 
+pasajero (Pclass), el lugar de embarque (Embarked), edad (Age) y el sexo (Sex).
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 fligner.test(Fare ~ as.factor(Age), data = people_red )
@@ -287,28 +305,52 @@ fligner.test(Fare ~ Embarked, data = people_red)
 fligner.test(Fare ~ Sex, data = people_red)
 ```
 
-Observamos que para las cuatro pruebas resulta un p-valor inferior al nivel de significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad y se concluye que la variable Fare presenta varianzas estadísticamente diferentes para los diferentes grupos de Pclass, Embarked, Age y Sex.
+Para las cuatro pruebas se obtiene un p-valor inferior al nivel de 
+significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad 
+y se concluye que la variable Fare presenta varianzas estadísticamente diferentes 
+para los diferentes grupos de Pclass, Embarked, Age y Sex.
 
 
 ## Análisis
 
 ### Clustering
 
-A continuación se desea observar si es posible obtener una caracterización de los supervivientes o pasajeros del Titanic, por lo que se aplica un metodo de clusterización basado en k-medoides, utilizando la distancia de Gower, que permite combinar atributos numericos con categóricos. Para hacer esta caracterización se tendrán en cuenta todos los atributos.
+A continuación se desea observar si es posible obtener una caracterización de 
+los supervivientes o pasajeros del Titanic, por lo que se aplica un metodo de 
+clusterización basado en k-medoides, utilizando la distancia de Gower, que permite 
+combinar atributos numericos con categóricos. Para hacer esta caracterización 
+se tendrán en cuenta todos los atributos excepto Survived y Ticket, ya que la variable como se observará, incluir la variable ticket ofrece peores resultados.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(cluster)
+# Se establece el valor de la semilla para la repetibilidad de los datos en el informe
 set.seed(1) 
 
-gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
+#Calculo de métrica de distancia
+gower_dist.t <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
+                    metric = "gower",
+                    type = list(logratio = 3))
+
+#Calculo de métrica de distancia
+gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived", "Ticket"))],
                     metric = "gower",
                     type = list(logratio = 3))
 ```
 
-A continuación, se determina el número óptimo de grupos.
+A continuación, se determina el número óptimo de grupos según los criterios de
+máxima silueta y deviación total.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 sil_width <- c(NA)
 td <- c(NA)
+sil_width.t <- c(NA)
+td.t <- c(NA)
 for(i in 2:30){
+  pam_fit.t <- pam(gower_dist.t,
+                 diss = TRUE,
+                 k = i)
+  sil_width.t[i] <- pam_fit.t$silinfo$avg.width
+  td.t[i] <- pam_fit.t$objective
+  
+  # Calculo sin la variable ticket
   pam_fit <- pam(gower_dist,
                  diss = TRUE,
                  k = i)
@@ -316,34 +358,52 @@ for(i in 2:30){
   td[i] <- pam_fit$objective
 }
 
-# Plot sihouette width (higher is better)
-plot(1:30, sil_width,
-     xlab = "Number of clusters",
-     ylab = "Silhouette Width")
+
+plot(1:30, sil_width.t, type="l",
+     xlab = "Agrupaciones",
+     ylab = "Silueta (utilizando Ticket)")
+lines(1:30, sil_width.t)
+
+plot(1:30, sil_width, type="l",
+     xlab = "Agrupaciones",
+     ylab = "Silueta")
 lines(1:30, sil_width)
 
+plot(1:30, td.t,
+     xlab = "Agrupaciones",
+     ylab = "Desviación total")
+lines(1:30, td.t)
+
 plot(1:30, td,
-     xlab = "Number of clusters",
-     ylab = "Total Deviation")
+     xlab = "Agrupaciones",
+     ylab = "Desviación total")
 lines(1:30, td)
 ```
 
-
+Como se puede contemplar en las gráficas, el punto óptimo esta en el codo de la 
+gráfica de desviación total, donde existe un máximo de silueta con 12 grupos. Se
+conforman a continuación los 12 grupos. Asimismo, se obtienen mejores resultados sin incluir la variable Ticket.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
 pam_fit <- pam(gower_dist, diss = TRUE, k = 12)
 
 pam_results <- people_red[ , -which(names(people_red) %in% c("Survived"))] %>%
   mutate(cluster = pam_fit$clustering) %>%
   group_by(cluster) %>%
   do(the_summary = summary(.))
+```
 
-# pam_results$the_summary
-
+De estos grupos se puede resumir sus principales características basadas en el 
+medoide.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 people_red[pam_fit$medoids, ]
+
+head(pam_results$the_summary, n=15)
 ```
 
 
-
+La siguiente gráfica permite ver de manera simple la separación realizada por 
+el algoritmo para 12 grupos.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(Rtsne) # for t-SNE plot
 tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
@@ -356,27 +416,40 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
   geom_point(aes(color = cluster))
 ```
 
+Como no se pretende utilizar el modelo para predecir los resultados, no será 
+necesario ningún procedimiento adicional.
 
 ### Arboles de decision
 
-A continuación se generara un modelo para predecir los supervivientes mediante arboles de decisión. Para ello se seleccionan las variables comentadas anteriormente y se generan las muestras de test y validación.
+A continuación se generara un modelo para predecir los supervivientes mediante 
+arboles de decisión. Para ello se seleccionan las variables comentadas anteriormente 
+y se generan las muestras de test y validación.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(caret)
 library(party)
 library(partykit)
 
 red_mod <- people_red[ ,c("Pclass", "SibSp", "Parch","Embarked", "Survived", "Age", "Fare", "Sex")]
-
-train_control <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
 ```
 
-Se genera el arbol de decisión con ctree y Random forest.
+Se genera el arbol de decisión con ctree y Random forest. Para entrenar ambos 
+arboles se realizará por validación cruzada con el metodo k-folds haciendo un 
+conjunto de 10 submuestras.
 ```{r echo=TRUE, message=FALSE, warning=FALSE, fig.height=10, fig.width=14}
+train_control <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
+
 ctree_ <- train(Survived ~ ., data = red_mod, method = "ctree", trControl=train_control)
-plot(ctree_$finalModel)
 
 forest.mod <- train(Survived ~ ., data = red_mod, method = "rf", trControl=train_control)
 ```
+
+Se muestra el arbol de decisión generado con el algoritmo ctree.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+plot(ctree_$finalModel)
+```
+
+Como resultado, se observa que los atributos que más peso tienen en la clasificación 
+son el sexo, la clase y el precio del ticket.
 
 A continuación se realiza la predicción del modelo y se obtienen sus métricas.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -385,14 +458,20 @@ confusionMatrix(ctree_$pred$pred, ctree_$pred$obs)
 confusionMatrix(forest.mod$pred$pred, forest.mod$pred$obs)
 ```
 
+La precisión global del modelo obtenido por random forest es mejor, aunque el 
+modelo de ctree permite determinar los fallecidos con un poco más de precisión.
 
 ### Regresión Logística
 
-En este caso, realizaremos una regresión logística para predecir nuestros datos. Vamos a aplicar una regresión logística utilizando todas las variables, tanto cuantitativas como cualitativas. Como no disponemos de conjunto de test, realizamos validación cruzada K-fold sobre el modelo de regresión con 10 iteraciones. Para saber que covariables meter al modelo, debemos mirar si hay variables de confusión, esto es, variables que al meterlas dentro del modelo, cambien significativamente el factor
+En este caso, se realiza una regresión logística para predecir los datos. 
+Se aplica una regresión logística utilizando todas las variables, tanto 
+cuantitativas como cualitativas. Como no se dispone de conjunto de test, se realiza 
+validación cruzada K-fold sobre el modelo de regresión con 10 iteraciones, como 
+se ha realizado en el apartado anterior. Para saber que covariables insertar al 
+modelo, se debe observar si hay variables de confusión, esto es, variables que 
+al tomarlas en cuenta en el modelo, cambien significativamente el factor de otras.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-# train the model on training set
-head(people_red)
 logist <- train(Survived ~ .,
                data = people_red[ , -which(names(people_red) %in% c("Ticket"))],
                trControl = train_control,
@@ -402,7 +481,11 @@ logist <- train(Survived ~ .,
 summary(logist, maxsum=1)
 ```
 
-Podemos observar aquí como las variables de PClass, Sex, Age, SibSp y Parch son significativas ya que el p-valor proporcionado por el estadístico de Wald es inferior a 0,05. De estos regresores, vamos a ver cuál tiene mayor impacto. Para ello utilizamos el criterio de información de Akaike, es decir, observamos que valor tiene el AIC con cada una de las variables predictoras por separado.
+Se observa como las variables de PClass, Sex, Age, SibSp y Parch son 
+significativas ya que el p-valor proporcionado por el estadístico de Wald es 
+inferior a 0,05. De estos regresores, vamos a ver cuál tiene mayor impacto. Para 
+ello utilizamos el criterio de información de Akaike, es decir, se observa que 
+valor tiene el AIC con cada una de las variables predictoras por separado.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Pclass
 summary(train(Survived ~ Pclass,
@@ -441,7 +524,9 @@ summary(train(Survived ~ Pclass + Sex + SibSp + Parch + Embarked,
                 metric="Accuracy"))
 ```
 
-Si comparamos los valores de AIC de cada modelo observamos que el de Sex es el mas bajo luego esa sera la variable más representativa. Por último, creamos la matriz de confusión para ver cuál es el valor predictivo de nuestro modelo.
+Si se compara los valores de AIC de cada modelo, se observa que el de Sex es el 
+mas bajo luego esa sera la variable más representativa. Por último, se crea la 
+matriz de confusión para ver cuál es el valor predictivo de nuestro modelo.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 cm <- confusionMatrix(logist)
@@ -456,47 +541,95 @@ print(paste0("La sensibilidad es: ", sensitivity))
 print(paste0("La especificidad  es: ", especificity))
 ```
 
-Observamos que nuestro modelo tiene una precisión decente aunque mejorable. Sobre todo, nuestro modelo identifica bien los registros positivos ya que tiene una sensibilidad alta.
+Se observa que el modelo tiene una precisión decente aunque mejorable. 
+Sobre todo, el modelo identifica bien los registros positivos ya que tiene 
+una sensibilidad alta.
 
 
 ### Contrastes
+A continuación, se realizarán algunos contrastes de hipótesis entre los grupos 
+creados anteriormente.
+
+En primer lugar, se realiza un test de proporción para definir si es diferente el 
+numero de fallecidos en función del sexo.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Test proporcion muertes por genero
 n1<-nrow(people_red.male)
 n2<-nrow(people_red.female)
-n1;n2
 p1 <- sum(people_red.male$Survived=="Fallece")/nrow(people_red.male);
 p2 <- sum(people_red.female$Survived=="Fallece")/nrow(people_red.female);
-p1;p2
 success<-c( p1*n1, p2*n2)
 nn<-c(n1,n2)
 prop.test(success, nn, alternative="two.sided", correct=FALSE)
+```
 
+El test permite determinar que la proporcion de muertes según el sexo no es la misma.
+
+Continuando con el mismo tipo de análisis, se analizará si hay similitud entre 
+el numero de fallecimientos entre la clase primera y la tercera.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Test proporcion muertes por clase
 n1<-nrow(people_red.first)
 n2<-nrow(people_red.third)
-n1;n2
 p1 <- sum(people_red.first$Survived=="Fallece")/nrow(people_red.first);
 p2 <- sum(people_red.third$Survived=="Fallece")/nrow(people_red.third);
-p1;p2
 success<-c( p1*n1, p2*n2)
 nn<-c(n1,n2)
 prop.test(success, nn, alternative="two.sided", correct=FALSE)
+```
 
+Se estima de esta manera, que la proporcion de muertes según clase tampoco es la misma,
+es decir, tiene un cierto efecto la clase a la que se pertenece para determinar la
+supervivencia.
 
-# Test media edad por clase
+Para el siguiente test, se analiza en primer lugar si se produce homocedasticidad 
+entre las variables. 
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 var.test(people_red.first$Age, people_red.third$Age)
+```
+
+Como las varianzas son iguales, se realiza el test para heterocedasticidad para 
+determinar si la media de edad de la clase 1a es mayor que la de la 3a.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Test media edad en funcion de clase
 t.test(people_red.first$Age, people_red.third$Age,alternative="greater", var.equal=FALSE)
+```
+Dado un valor p tan pequeño, no se confirma la hipotesis nula y se estima 
+entonces que la media de edad de la primera clase era más elevada que la de la tercera.
 
-# Test media edad en funcion de fallecimiento o supervivencia
+Nuevamente se analiza si se produce homocedasticidad entre las variables antes de 
+realizar el analisis de edad entre fallecidos.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 var.test(people_red.fallecidos$Age, people_red.supervivientes$Age)
-t.test(people_red.fallecidos$Age, people_red.supervivientes$Age,alternative="greater", var.equal=TRUE)
+```
 
-# Test media precio por clase
+Se observa que la varianzas son iguales. Se procede a realizar el test para determinar
+si la media de la edad de los fallecidos es mayor que la de los supervivientes.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Test media edad en funcion de fallecimiento o supervivencia
+t.test(people_red.fallecidos$Age, people_red.supervivientes$Age,alternative="greater", var.equal=TRUE)
+```
+
+Según los resultados del test, la edad de los fallecidos no era mayor que la de 
+los supervivientes, al no rechazar la hipotesis nula por un valor p mayor que el valor
+de significancia.
+
+Para el ultimo test, se analiza la homocedasticidad tambien.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 var.test(people_red.first$Fare, people_red.third$Fare)
+```
+
+
+Dada la heterocedasticidad entre las muestras, se analiza si la media del precio
+del ticket de 1a clase es significativamente mayor que el de la 3a.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Test media precio por clase
 t.test(people_red.first$Fare, people_red.third$Fare,alternative="greater", var.equal=FALSE)
 ```
 
+Este ultimo test, rechaza la hipotesis nula de las tarifas, aceptando que los 
+precios de primera clase son más caros, al disponer de una valor p tan pequeño, tal
+como se esperaba.
 ******
 # Conclusiones
 ******
@@ -504,3 +637,10 @@ t.test(people_red.first$Fare, people_red.third$Fare,alternative="greater", var.e
 ******
 # Tabla de contribuciones
 ******
+| Contribuciones              | Firma                                   |
+|-----------------------------|:---------------------------------------:|
+| Investigación Previa        | E.C.G.         M.R.L                    |
+| Redacción de las respuestas | E.C.G.         M.R.L                    |
+| Desarrollo código           | E.C.G.         M.R.L                    |
+
+
