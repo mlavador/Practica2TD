@@ -9,6 +9,7 @@ output:
     theme: cosmo
     toc: yes
     toc_depth: 2
+    css: style.css
 ---
 
 ******
@@ -101,15 +102,14 @@ TicketNum <- sapply(strsplit(people_red$Ticket, " ", fixed=TRUE), tail, 1)
 head(people_red)
 length(unique(TicketNum))
 length(unique(people_red$Ticket))
-nrow(people_red)
+
+people_red$Ticket <- NULL
 ```
 
 Dado que hay un variación de 2 entre los valores únicos del ticket con letra 
 respecto al ticket sin letra se decide no simplificarlo de manera numérica, ya 
-que es necesaria también. El atributo ticket se mantiene ya que no es un 
-identificador único del pasajero (680 valores únicos contra 889 tomados) y 
-puede contener información de la localización 
-de los pasajeros en el barco.
+que es necesaria también. Por tanto, el atributo ticket no se mantiene porque 
+no aporta información útil al conjunto de datos en su totalidad ni descomponiendolo.
 
 ******
 # Limpieza de los datos
@@ -186,14 +186,14 @@ library(ggplot2)
 people_red_outFare <- people_red[people_red$Fare %in% bpFare$out,]
 class <- c("1a","2a","3a")
 freq_pclass_outFare <- as.data.frame(table(people_red_outFare$Pclass))
-ggplot(freq_pclass_outFare,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Distribución de precio segun clase de los outliers")
+ggplot(freq_pclass_outFare,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Frecuencias de clase de los outliers")
 ```
 
 Comparando con la distribución original:
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 freq_pclass <- as.data.frame(table(people_red$Pclass)) 
-ggplot(freq_pclass,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Distribución de precio segun clase")
+ggplot(freq_pclass,aes(x=Var1,y=Freq, fill=class))+geom_bar(stat = "identity", position = "dodge") + labs(x="Pclass")+ggtitle("Frecuencias de clase")
 ```
 
 Se observa que la mitad de los pasajeros de primera clase tienen precios mayores
@@ -221,14 +221,13 @@ estos valores también se sustituyen con la media.
 people_red[(people_red$Fare %in% bpFare$out) & (people_red$Pclass == 1) & (people_red$Fare >= 200),]$Fare <- mean_class[mean_class$Pclass == 1,]$mean
 ```
 
-Por ultimo, se convierten las clases con valor categorico a factor, para su 
+Por ultimo, se convierten las clases con valor categórico a factor, para su 
 correcto procesado posterior.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 people_red$Sex <- as.factor(people_red$Sex)
 people_red$Pclass <- as.factor(people_red$Pclass)
 people_red$Embarked <- as.factor(people_red$Embarked)
 people_red$Survived <- factor(people_red$Survived, levels=c("0", "1"), labels=c("Fallece", "Sobrevive"))
-people_red$Ticket <- as.factor(people_red$Ticket)
 head(people_red)
 ```
 
@@ -262,29 +261,27 @@ Como se observa, ninguna de las muestras contiene menos de 30 elementos,
 con lo que se puede asumir normalidad en la distribución de las medias según 
 el teorema central del límite para los futuros analisis.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-nrow(people_red.male)
-nrow(people_red.female)
-nrow(people_red.first)
-nrow(people_red.second)
-nrow(people_red.third)
-nrow(people_red.fallecidos)
-nrow(people_red.supervivientes)
-
+nrow(people_red.male); nrow(people_red.female); nrow(people_red.first); nrow(people_red.second); nrow(people_red.third);nrow(people_red.fallecidos);nrow(people_red.supervivientes)
 ```
 
 ## Comprobación de normalidad y homogeneidad
 
-se analiza si la variables Fare y Age siguen una distribución normal. Para ello 
+### Normalidad
+
+Se analiza si la variables numéricas siguen una distribución normal. Para ello 
 se aplica el test de Shapiro-Wilk asi como se muestra tambien el gráfico 
 cuartil-cuartil.
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-shapiro.test(people_red$Fare)
-qqnorm(people_red$Fare)
-qqline(people_red$Fare, col = "steelblue", lwd = 2)
 
-shapiro.test(people_red$Age)
-qqnorm(people_red$Age)
-qqline(people_red$Age, col = "steelblue", lwd = 2)
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+for(c in names(people_red)) {
+  if(is.numeric(people_red[[c]])) {
+    print(c)
+    print(shapiro.test(people_red[[c]]))
+    qqnorm(people_red[[c]])
+    qqline(people_red[[c]], col = "steelblue", lwd = 2)
+  }
+}
+
 ```
 
 
@@ -293,45 +290,46 @@ gráfico. Esto se corrobora al ver que el p-valor es muy inferior a 0.05 y
 se rechaza la hipótesis nula. Por lo tanto, no se puede suponer normalidad en 
 las variables. 
 
+### Homocedasticidad
+
 Ahora se estudiará la homogeneidad de varianzas mediante la aplicación 
 del test de Fligner-Kileen, ya que las variables no cumplen la condición de 
-normalidad. Se estudia la homocedasticidad según varios grupos: la clase del 
-pasajero (Pclass), el lugar de embarque (Embarked), edad (Age) y el sexo (Sex).
+normalidad.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-fligner.test(Fare ~ as.factor(Age), data = people_red )
-fligner.test(Fare ~ Pclass, data = people_red)
-fligner.test(Fare ~ Embarked, data = people_red)
-fligner.test(Fare ~ Sex, data = people_red)
+#Age
+fligner.test(Age ~ as.factor(Pclass), data = people_red)
+fligner.test(Age ~ as.factor(Embarked), data = people_red)
+fligner.test(Age ~ as.factor(Sex), data = people_red)
 ```
 
-Para las cuatro pruebas se obtiene un p-valor inferior al nivel de 
-significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad 
-y se concluye que la variable Fare presenta varianzas estadísticamente diferentes 
-para los diferentes grupos de Pclass, Embarked, Age y Sex.
+Se observa que con Age, tanto Embarked como Sex, tienen un p-valor superior a 0,05 y, por lo tanto, no se puede rechazar la hipótesis nula lo que implica homogeneidad en la varianza.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Fare
+fligner.test(Fare ~ as.factor(Pclass), data = people_red)
+fligner.test(Fare ~ as.factor(Embarked), data = people_red)
+fligner.test(Fare ~ as.factor(Sex), data = people_red)
+```
+
+Se observa que para las tres pruebas resulta un p-valor inferior al nivel de significancia (< 0,05). Por lo tanto, se rechaza la hipótesis nula de homocedasticidad y se concluye que la variable Fare presenta varianzas estadísticamente diferentes para los diferentes grupos de Pclass, Embarked y Sex.
 
 
 ## Análisis
 
 ### Clustering
 
-A continuación se desea observar si es posible obtener una caracterización de 
+A continuación, se desea observar si es posible obtener una caracterización de 
 los supervivientes o pasajeros del Titanic, por lo que se aplica un metodo de 
 clusterización basado en k-medoides, utilizando la distancia de Gower, que permite 
 combinar atributos numericos con categóricos. Para hacer esta caracterización 
-se tendrán en cuenta todos los atributos excepto Survived y Ticket, ya que la variable como se observará, incluir la variable ticket ofrece peores resultados.
+se tendrán en cuenta todos los atributos excepto Survived.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(cluster)
 # Se establece el valor de la semilla para la repetibilidad de los datos en el informe
 set.seed(1) 
 
 #Calculo de métrica de distancia
-gower_dist.t <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
-                    metric = "gower",
-                    type = list(logratio = 3))
-
-#Calculo de métrica de distancia
-gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived", "Ticket"))],
+gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
                     metric = "gower",
                     type = list(logratio = 3))
 ```
@@ -341,16 +339,7 @@ máxima silueta y deviación total.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 sil_width <- c(NA)
 td <- c(NA)
-sil_width.t <- c(NA)
-td.t <- c(NA)
 for(i in 2:30){
-  pam_fit.t <- pam(gower_dist.t,
-                 diss = TRUE,
-                 k = i)
-  sil_width.t[i] <- pam_fit.t$silinfo$avg.width
-  td.t[i] <- pam_fit.t$objective
-  
-  # Calculo sin la variable ticket
   pam_fit <- pam(gower_dist,
                  diss = TRUE,
                  k = i)
@@ -358,21 +347,10 @@ for(i in 2:30){
   td[i] <- pam_fit$objective
 }
 
-
-plot(1:30, sil_width.t, type="l",
-     xlab = "Agrupaciones",
-     ylab = "Silueta (utilizando Ticket)")
-lines(1:30, sil_width.t)
-
-plot(1:30, sil_width, type="l",
+plot(1:30, sil_width,
      xlab = "Agrupaciones",
      ylab = "Silueta")
 lines(1:30, sil_width)
-
-plot(1:30, td.t,
-     xlab = "Agrupaciones",
-     ylab = "Desviación total")
-lines(1:30, td.t)
 
 plot(1:30, td,
      xlab = "Agrupaciones",
@@ -382,7 +360,7 @@ lines(1:30, td)
 
 Como se puede contemplar en las gráficas, el punto óptimo esta en el codo de la 
 gráfica de desviación total, donde existe un máximo de silueta con 12 grupos. Se
-conforman a continuación los 12 grupos. Asimismo, se obtienen mejores resultados sin incluir la variable Ticket.
+conforman a continuación los 12 grupos.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(dplyr)
 pam_fit <- pam(gower_dist, diss = TRUE, k = 12)
@@ -397,8 +375,6 @@ De estos grupos se puede resumir sus principales características basadas en el
 medoide.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 people_red[pam_fit$medoids, ]
-
-head(pam_results$the_summary, n=15)
 ```
 
 
@@ -421,37 +397,32 @@ necesario ningún procedimiento adicional.
 
 ### Arboles de decision
 
-A continuación se generara un modelo para predecir los supervivientes mediante 
-arboles de decisión. Para ello se seleccionan las variables comentadas anteriormente 
-y se generan las muestras de test y validación.
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-library(caret)
-library(party)
-library(partykit)
-
-red_mod <- people_red[ ,c("Pclass", "SibSp", "Parch","Embarked", "Survived", "Age", "Fare", "Sex")]
-```
+A continuación, se generara un modelo para predecir los supervivientes mediante 
+arboles de decisión.
 
 Se genera el arbol de decisión con ctree y Random forest. Para entrenar ambos 
 arboles se realizará por validación cruzada con el metodo k-folds haciendo un 
 conjunto de 10 submuestras.
-```{r echo=TRUE, message=FALSE, warning=FALSE, fig.height=10, fig.width=14}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(caret)
+library(party)
+library(partykit)
 train_control <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
 
-ctree_ <- train(Survived ~ ., data = red_mod, method = "ctree", trControl=train_control)
+ctree_ <- train(Survived ~ ., data = people_red, method = "ctree", trControl=train_control)
 
-forest.mod <- train(Survived ~ ., data = red_mod, method = "rf", trControl=train_control)
+forest.mod <- train(Survived ~ ., data = people_red, method = "rf", trControl=train_control)
 ```
 
 Se muestra el arbol de decisión generado con el algoritmo ctree.
-```{r echo=TRUE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, fig.height=10, fig.width=14}
 plot(ctree_$finalModel)
 ```
 
 Como resultado, se observa que los atributos que más peso tienen en la clasificación 
 son el sexo, la clase y el precio del ticket.
 
-A continuación se realiza la predicción del modelo y se obtienen sus métricas.
+A continuación, se obtienen sus métricas.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 confusionMatrix(ctree_$pred$pred, ctree_$pred$obs)
 
@@ -465,15 +436,17 @@ modelo de ctree permite determinar los fallecidos con un poco más de precisión
 
 En este caso, se realiza una regresión logística para predecir los datos. 
 Se aplica una regresión logística utilizando todas las variables, tanto 
-cuantitativas como cualitativas. Como no se dispone de conjunto de test, se realiza 
-validación cruzada K-fold sobre el modelo de regresión con 10 iteraciones, como 
-se ha realizado en el apartado anterior. Para saber que covariables insertar al 
-modelo, se debe observar si hay variables de confusión, esto es, variables que 
-al tomarlas en cuenta en el modelo, cambien significativamente el factor de otras.
+cuantitativas como cualitativas. Se realiza validación cruzada K-fold sobre el 
+modelo de regresión con 10 iteraciones, como se ha realizado en el apartado anterior. 
+Para saber que covariables insertar al modelo, se debe observar si hay variables 
+de confusión, esto es, variables que al tomarlas en cuenta en el modelo, cambien 
+significativamente el factor de otras.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+logist.data <- people_red
+
 logist <- train(Survived ~ .,
-               data = people_red[ , -which(names(people_red) %in% c("Ticket"))],
+               data = people_red,
                trControl = train_control,
                method = "glm",
                family=binomial())
@@ -481,7 +454,7 @@ logist <- train(Survived ~ .,
 summary(logist, maxsum=1)
 ```
 
-Se observa como las variables de PClass, Sex, Age, SibSp y Parch son 
+Se observa como las variables de PClass, Sex, Age y SibSp son 
 significativas ya que el p-valor proporcionado por el estadístico de Wald es 
 inferior a 0,05. De estos regresores, vamos a ver cuál tiene mayor impacto. Para 
 ello utilizamos el criterio de información de Akaike, es decir, se observa que 
@@ -509,41 +482,31 @@ summary(train(Survived ~ Age,
                 family=binomial(),
                 metric="Accuracy"))
 #SibSp
-summary(train(Survived ~ Pclass + Sex + SibSp + Parch + Embarked,
-                data = people_red,
-                trControl = train_control,
-                method = "glm",
-                family=binomial(),
-                metric="Accuracy"))
-#Parch
-summary(train(Survived ~ Pclass + Sex + SibSp + Parch + Embarked,
+summary(train(Survived ~ SibSp,
                 data = people_red,
                 trControl = train_control,
                 method = "glm",
                 family=binomial(),
                 metric="Accuracy"))
 ```
+
 
 Si se compara los valores de AIC de cada modelo, se observa que el de Sex es el 
 mas bajo luego esa sera la variable más representativa. Por último, se crea la 
 matriz de confusión para ver cuál es el valor predictivo de nuestro modelo.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-cm <- confusionMatrix(logist)
-VP <- cm$table[1]
-FN <- cm$table[2]
-FP <- cm$table[3]
-VN <- cm$table[4]
-sensitivity <- (VP / (VP + FP))
-especificity <- (VN / (VN + FP))
-cm
-print(paste0("La sensibilidad es: ", sensitivity))
-print(paste0("La especificidad  es: ", especificity))
+logist <- train(Survived ~ .,
+         data = people_red,
+         trControl = train_control,
+         method = "glm",
+         family=binomial())
+
+confusionMatrix(logist$pred$pred, logist$pred$obs)
 ```
 
 Se observa que el modelo tiene una precisión decente aunque mejorable. 
-Sobre todo, el modelo identifica bien los registros positivos ya que tiene 
-una sensibilidad alta.
+Sobre todo, el modelo identifica bien a los fallecidos.
 
 
 ### Contrastes
@@ -588,8 +551,8 @@ entre las variables.
 var.test(people_red.first$Age, people_red.third$Age)
 ```
 
-Como las varianzas son iguales, se realiza el test para heterocedasticidad para 
-determinar si la media de edad de la clase 1a es mayor que la de la 3a.
+Como las varianzas no son iguales debido a un valor p inferior a 0.05, se realiza el test para heterocedasticidad para 
+determinar si la media de edad de la 1a clase es mayor que la de la 3a.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Test media edad en funcion de clase
 t.test(people_red.first$Age, people_red.third$Age,alternative="greater", var.equal=FALSE)
@@ -612,7 +575,7 @@ t.test(people_red.fallecidos$Age, people_red.supervivientes$Age,alternative="gre
 
 Según los resultados del test, la edad de los fallecidos no era mayor que la de 
 los supervivientes, al no rechazar la hipotesis nula por un valor p mayor que el valor
-de significancia.
+de significancia 0.05.
 
 Para el ultimo test, se analiza la homocedasticidad tambien.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -628,11 +591,33 @@ t.test(people_red.first$Fare, people_red.third$Fare,alternative="greater", var.e
 ```
 
 Este ultimo test, rechaza la hipotesis nula de las tarifas, aceptando que los 
-precios de primera clase son más caros, al disponer de una valor p tan pequeño, tal
+precios de primera clase son más caros, al disponer de un valor p tan pequeño, tal
 como se esperaba.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+write.csv(people_red,"titanic_clean.csv", row.names = FALSE)
+```
+
 ******
 # Conclusiones
 ******
+Los modelos obtenidos permiten obtener gran cantidad de información sobre los 
+pasajeros y su supervivencia. 
+
+Por una parte, se ha observado que mediante clustering
+existen 12 perfiles de pasajeros, de los cuales los hombres suelen fallecer en la mayoría,
+mientras que los perfiles de mujeres suelen sobrevivir. 
+
+Los modelos destinados a predición poseen una precisión similar, siendo el de 
+Random Forest el mejor, con un 82% aproximadamente. Todos los modelos, muestran 
+una sensibilidad más elevada que la especificidad, con lo que es más facil detectar
+a los que fallecen que a los que sobreviven. El modelo de regresión logística
+ha mostrado, de manera acorde con los otros modelos y con los contrastes de hipótesis
+realizados sobre los diferentes grupos, que las variables más influyentes en la
+supervivencia son el sexo y la clase del pasajero.
+
+
+
 
 ******
 # Tabla de contribuciones
