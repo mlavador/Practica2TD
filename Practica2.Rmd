@@ -213,8 +213,9 @@ Por ultimo se convierten las clases con valor categorico a factor, para su corre
 people_red$Sex <- as.factor(people_red$Sex)
 people_red$Pclass <- as.factor(people_red$Pclass)
 people_red$Embarked <- as.factor(people_red$Embarked)
-people_red$Survived <- as.factor(people_red$Survived)
+people_red$Survived <- factor(people_red$Survived, levels=c("0", "1"), labels=c("Fallece", "Sobrevive"))
 people_red$Ticket <- as.factor(people_red$Ticket)
+head(people_red)
 ```
 
 ******
@@ -240,12 +241,30 @@ people_red.first <- people_red[people_red$Pclass == 1,]
 people_red.second <- people_red[people_red$Pclass == 2,]
 people_red.third <- people_red[people_red$Pclass == 3,]
 
+#Agrupación por Fallecimiento o Supervivencia
+people_red.fallecidos <- people_red[people_red$Survived == "Fallece",]
+people_red.supervivientes<- people_red[people_red$Survived == "Sobrevive",]
+```
+
+
+Como se observa, ninguna de las muestras contiene menos de 30 elementos, con lo que se puede asumir normalidad en la distribución de las medias según el teorema central del límite.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+nrow(people_red.male)
+nrow(people_red.female)
+nrow(people_red.cherbourg)
+nrow(people_red.southampton)
+nrow(people_red.queenstown)
+nrow(people_red.first)
+nrow(people_red.second)
+nrow(people_red.third)
+nrow(people_red.fallecidos)
+nrow(people_red.supervivientes)
+
 ```
 
 ## Comprobación de normalidad y homogeneidad
 
 Miramos si la variables Fare y Age siguen una distribución normal. Para ello aplicamos el test de Shapiro-Wilk asi como se muestra tambien el grafico cuartil-cuartil.
-
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 shapiro.test(people_red$Fare)
 qqnorm(people_red$Fare)
@@ -278,6 +297,7 @@ Observamos que para las cuatro pruebas resulta un p-valor inferior al nivel de s
 A continuación se desea observar si es posible obtener una caracterización de los supervivientes o pasajeros del Titanic, por lo que se aplica un metodo de clusterización basado en k-medoides, utilizando la distancia de Gower, que permite combinar atributos numericos con categóricos. Para hacer esta caracterización se tendrán en cuenta todos los atributos.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(cluster)
+set.seed(1) 
 
 gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
                     metric = "gower",
@@ -287,28 +307,32 @@ gower_dist <- daisy(people_red[ , -which(names(people_red) %in% c("Survived"))],
 A continuación, se determina el número óptimo de grupos.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 sil_width <- c(NA)
-for(i in 2:20){
-
+td <- c(NA)
+for(i in 2:30){
   pam_fit <- pam(gower_dist,
                  diss = TRUE,
                  k = i)
-
   sil_width[i] <- pam_fit$silinfo$avg.width
-
+  td[i] <- pam_fit$objective
 }
 
 # Plot sihouette width (higher is better)
-plot(1:20, sil_width,
+plot(1:30, sil_width,
      xlab = "Number of clusters",
      ylab = "Silhouette Width")
-lines(1:20, sil_width)
+lines(1:30, sil_width)
+
+plot(1:30, td,
+     xlab = "Number of clusters",
+     ylab = "Total Deviation")
+lines(1:30, td)
 ```
 
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-pam_fit <- pam(gower_dist, diss = TRUE, k = 10)
 
-pam_results <- people_red %>%
-  dplyr::select(-Survived) %>%
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+pam_fit <- pam(gower_dist, diss = TRUE, k = 12)
+
+pam_results <- people_red[ , -which(names(people_red) %in% c("Survived"))] %>%
   mutate(cluster = pam_fit$clustering) %>%
   group_by(cluster) %>%
   do(the_summary = summary(.))
@@ -316,10 +340,8 @@ pam_results <- people_red %>%
 # pam_results$the_summary
 
 people_red[pam_fit$medoids, ]
-
-people_red <- cbind(people_red, cluster = pam_fit$cluster)
-pairs(people_red, col=c("red", "blue"))
 ```
+
 
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -334,75 +356,73 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
   geom_point(aes(color = cluster))
 ```
 
+
 ### Arboles de decision
 
 A continuación se generara un modelo para predecir los supervivientes mediante arboles de decisión. Para ello se seleccionan las variables comentadas anteriormente y se generan las muestras de test y validación.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(caret)
+library(party)
+library(partykit)
+
 red_mod <- people_red[ ,c("Pclass", "SibSp", "Parch","Embarked", "Survived", "Age", "Fare", "Sex")]
-s_size <- floor(0.75 * nrow(red_mod))
 
-train_el <- sample(seq_len(nrow(red_mod)), size = s_size)
-
-train <- red_mod[train_el, ]
-test <- red_mod[-train_el, ]
-
+trctrl <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
 ```
 
 Se genera el arbol de decisión con ctree y Random forest.
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-library(rpart)
-library(readr)
-library(caTools)
-library(party)
-library(partykit)
-library(rpart.plot)
-library(caret)
-# tree.survived <- rpart(Survived~.,data = train, method="class")
-# plot(tree.survived)
-# text(tree.survived, pretty = 0)
+```{r echo=TRUE, message=FALSE, warning=FALSE, fig.height=10, fig.width=14}
+ctree_ <- train(Survived ~ ., data = red_mod, method = "ctree", trControl=trctrl)
+plot(ctree_$finalModel)
 
-ctree_ <- ctree(Survived ~ ., train)
-plot(ctree_)
-
-library(randomForest)
-forest.mod <- randomForest(Survived ~ ., data=red_mod, importance=TRUE,ntree=1000)
+forest.mod <- train(Survived ~ ., data = red_mod, method = "rf", trControl=trctrl)
 ```
 
 A continuación se realiza la predicción del modelo y se obtienen sus métricas.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-# tree.pred = predict(tree.survived, test, type="class")
-# pred.results = with(tree.survived, table(tree.pred, test$Survived))
-# confusionMatrix(pred.results,reference = test$Survived)
+confusionMatrix(ctree_$pred$pred, ctree_$pred$obs)
 
-tree.pred.c = predict(ctree_, test, method="class")
-pred.results.c = with(ctree_, table(tree.pred.c, test$Survived))
-confusionMatrix(pred.results.c,reference = test$Survived)
-
-forest.pred <- predict(forest.mod, red_mod, method="class")
-pred.results.forest <- with(forest.mod, table(forest.pred, red_mod$Survived))
-confusionMatrix(pred.results.forest, reference = red_mod$Survived)
+confusionMatrix(forest.mod$pred$pred, forest.mod$pred$obs)
 ```
 
 
 ### Contrastes
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Test proporcion muertes por genero
+n1<-nrow(people_red.male)
+n2<-nrow(people_red.female)
+n1;n2
+p1 <- sum(people_red.male$Survived=="Fallece")/nrow(people_red.male);
+p2 <- sum(people_red.female$Survived=="Fallece")/nrow(people_red.female);
+p1;p2
+success<-c( p1*n1, p2*n2)
+nn<-c(n1,n2)
+prop.test(success, nn, alternative="two.sided", correct=FALSE)
 
-t.test(people_red.first$Fare, people_red.second$Fare,alternative="greater", var.equal=FALSE)
+# Test proporcion muertes por clase
+n1<-nrow(people_red.first)
+n2<-nrow(people_red.third)
+n1;n2
+p1 <- sum(people_red.first$Survived=="Fallece")/nrow(people_red.first);
+p2 <- sum(people_red.third$Survived=="Fallece")/nrow(people_red.third);
+p1;p2
+success<-c( p1*n1, p2*n2)
+nn<-c(n1,n2)
+prop.test(success, nn, alternative="two.sided", correct=FALSE)
 
-t.test(people_red.second$Fare, people_red.third$Fare,alternative="greater", var.equal=FALSE)
 
-t.test(people_red.first$Age, people_red.second$Age,alternative="greater", var.equal=FALSE)
-
+# Test media edad por clase
+var.test(people_red.first$Age, people_red.third$Age)
 t.test(people_red.first$Age, people_red.third$Age,alternative="greater", var.equal=FALSE)
 
-t.test(people_red.third$SibSp, people_red.first$SibSp,alternative="greater", var.equal=FALSE)
+# Test media edad en funcion de fallecimiento o supervivencia
+var.test(people_red.fallecidos$Age, people_red.supervivientes$Age)
+t.test(people_red.fallecidos$Age, people_red.supervivientes$Age,alternative="greater", var.equal=TRUE)
 
-t.test(people_red.third$SibSp, people_red.second$SibSp,alternative="greater", var.equal=FALSE)
-
+# Test media precio por clase
+var.test(people_red.first$Fare, people_red.third$Fare)
+t.test(people_red.first$Fare, people_red.third$Fare,alternative="greater", var.equal=FALSE)
 ```
-
-
-
 
 ******
 # Conclusiones
