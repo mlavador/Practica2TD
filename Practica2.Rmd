@@ -367,15 +367,15 @@ library(partykit)
 
 red_mod <- people_red[ ,c("Pclass", "SibSp", "Parch","Embarked", "Survived", "Age", "Fare", "Sex")]
 
-trctrl <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
+train_control <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
 ```
 
 Se genera el arbol de decisión con ctree y Random forest.
 ```{r echo=TRUE, message=FALSE, warning=FALSE, fig.height=10, fig.width=14}
-ctree_ <- train(Survived ~ ., data = red_mod, method = "ctree", trControl=trctrl)
+ctree_ <- train(Survived ~ ., data = red_mod, method = "ctree", trControl=train_control)
 plot(ctree_$finalModel)
 
-forest.mod <- train(Survived ~ ., data = red_mod, method = "rf", trControl=trctrl)
+forest.mod <- train(Survived ~ ., data = red_mod, method = "rf", trControl=train_control)
 ```
 
 A continuación se realiza la predicción del modelo y se obtienen sus métricas.
@@ -384,6 +384,79 @@ confusionMatrix(ctree_$pred$pred, ctree_$pred$obs)
 
 confusionMatrix(forest.mod$pred$pred, forest.mod$pred$obs)
 ```
+
+
+### Regresión Logística
+
+En este caso, realizaremos una regresión logística para predecir nuestros datos. Vamos a aplicar una regresión logística utilizando todas las variables, tanto cuantitativas como cualitativas. Como no disponemos de conjunto de test, realizamos validación cruzada K-fold sobre el modelo de regresión con 10 iteraciones. Para saber que covariables meter al modelo, debemos mirar si hay variables de confusión, esto es, variables que al meterlas dentro del modelo, cambien significativamente el factor
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# train the model on training set
+head(people_red)
+logist <- train(Survived ~ .,
+               data = people_red[ , -which(names(people_red) %in% c("Ticket"))],
+               trControl = train_control,
+               method = "glm",
+               family=binomial())
+
+summary(logist, maxsum=1)
+```
+
+Podemos observar aquí como las variables de PClass, Sex, Age, SibSp y Parch son significativas ya que el p-valor proporcionado por el estadístico de Wald es inferior a 0,05. De estos regresores, vamos a ver cuál tiene mayor impacto. Para ello utilizamos el criterio de información de Akaike, es decir, observamos que valor tiene el AIC con cada una de las variables predictoras por separado.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Pclass
+summary(train(Survived ~ Pclass,
+                data = people_red,
+                trControl = train_control,
+                method = "glm",
+                family=binomial(),
+                metric="Accuracy"))
+#Sex
+summary(train(Survived ~ Sex,
+                data = people_red,
+                trControl = train_control,
+                method = "glm",
+                family=binomial(),
+                metric="Accuracy"))
+#Age
+summary(train(Survived ~ Age,
+                data = people_red,
+                trControl = train_control,
+                method = "glm",
+                family=binomial(),
+                metric="Accuracy"))
+#SibSp
+summary(train(Survived ~ Pclass + Sex + SibSp + Parch + Embarked,
+                data = people_red,
+                trControl = train_control,
+                method = "glm",
+                family=binomial(),
+                metric="Accuracy"))
+#Parch
+summary(train(Survived ~ Pclass + Sex + SibSp + Parch + Embarked,
+                data = people_red,
+                trControl = train_control,
+                method = "glm",
+                family=binomial(),
+                metric="Accuracy"))
+```
+
+Si comparamos los valores de AIC de cada modelo observamos que el de Sex es el mas bajo luego esa sera la variable más representativa. Por último, creamos la matriz de confusión para ver cuál es el valor predictivo de nuestro modelo.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+cm <- confusionMatrix(logist)
+VP <- cm$table[1]
+FN <- cm$table[2]
+FP <- cm$table[3]
+VN <- cm$table[4]
+sensitivity <- (VP / (VP + FP))
+especificity <- (VN / (VN + FP))
+cm
+print(paste0("La sensibilidad es: ", sensitivity))
+print(paste0("La especificidad  es: ", especificity))
+```
+
+Observamos que nuestro modelo tiene una precisión decente aunque mejorable. Sobre todo, nuestro modelo identifica bien los registros positivos ya que tiene una sensibilidad alta.
 
 
 ### Contrastes
